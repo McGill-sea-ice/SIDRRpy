@@ -1,4 +1,4 @@
-# SIDDRR.py
+# SIDRRpy
 Python utility to open and manipulate SIDRR data. 
 
 ## Overview
@@ -14,7 +14,7 @@ Start by cloning the repository:
 # Check if your SSH key is configured on GitHub
 ssh -T git@github.com
 # Clone the project
-git clone git@github.com:McGill-sea-ice/SIDRR.py.git
+git clone git@github.com:McGill-sea-ice/SIDRRpy.git
 ```
 
 This project uses a [**conda environment**][conda]. Start by accessing the project folder:
