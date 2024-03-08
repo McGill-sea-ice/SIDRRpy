@@ -1,0 +1,14 @@
+name: icetrackdefs
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - numpy
+  - matplotlib-base
+  - netcdf4
+  - scipy
+  - pandas
+  - cartopy
+  - pyproj
+  - haversine
+  - tqdm
