@@ -46,13 +46,9 @@ class TimeUtil:
         self.StartDate = datetime(self.StartYear,self.StartMonth,self.StartDay,hour=self.StartHour)
         self.ThisTime = self.StartDate
         self.t = self.time_ref_number(date_pt = self.ThisTime)
-
         self.tstart = self.time_ref_number(date_pt = self.StartDate)
 
-        if self.EndYear == self.StartYear:
-            self.EndDate = datetime(self.EndYear,self.EndMonth,self.EndDay,hour=self.EndHour)
-        else:
-            self.EndDate = datetime(self.StartYear,self.EndMonth,self.EndDay,hour=self.EndHour)
+        self.EndDate = datetime(self.EndYear,self.EndMonth,self.EndDay,hour=self.EndHour)
         self.tend   = self.time_ref_number(date_pt = self.EndDate)
 
         self.NextTime = self.ThisTime + timedelta(seconds=self.tstep*60*60)
