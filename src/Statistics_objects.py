@@ -20,7 +20,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-#from SatelliteCoverage.utils import convert_from_grid, get_prefix, convert_to_grid
+from datetime import datetime
 
 # Loads netCDF data
 class Data_Distribution:
@@ -71,13 +71,14 @@ class Data_Distribution:
 
 class Coverage_map:
 
-    def __init__(self, resolution = None):
+    def __init__(self, resolution = None, label = None):
         """
         This class defines a 2D histogram of satellite covevage.
         """
 
         if resolution is None:
             resolution = 10000 #default
+        self.resolution = resolution
 
         # Upper (u) and lower (l) extents of map_x, map_y (metres)
         lxextent = -4400000
@@ -86,37 +87,60 @@ class Coverage_map:
         lyextent = -2600000
 
         # Make 2D map bins
-        dxi = (1000*float(resolution))
-        dyj = (1000*float(resolution))
+        dxi = (float(resolution))
+        dyj = (float(resolution))
         self.xbins = np.arange(lxextent,uxextent+dxi,dxi)
         self.ybins = np.arange(lyextent,uyextent+dyj,dyj)
         self.H = np.array([])
         self.ntime = 0
+        self.dxi = dxi
+        self.dyj = dyj
+        self.label = label
+        self.covered_area = 0.0
+        self.covered_area_tseries = []
+        self.timeaxis = []
 
-    def add2hist_2D(self, Data = None):
+    def add2hist_2D(self, Data = None, Satellite = None, Time = None):
         """
         This function adds 1 in the histrogram H in location with data.
         """
         proj = ccrs.NorthPolarStereo(central_longitude=0)
         trans = ccrs.Geodetic()
 
-        start_lats = np.concatenate((Data.start_lat1,Data.start_lat2,Data.start_lat3), axis=0)
-        start_lons = np.concatenate((Data.start_lon1, Data.start_lon2, Data.start_lon3), axis=0)
+        if Satellite is not None:
+            start_lats = np.concatenate((Data.start_lat1[Data.satellite[:]==Satellite],
+                                         Data.start_lat2[Data.satellite[:]==Satellite],
+                                         Data.start_lat3[Data.satellite[:]==Satellite]), axis=0)
+            start_lons = np.concatenate((Data.start_lon1[Data.satellite[:]==Satellite],
+                                         Data.start_lon2[Data.satellite[:]==Satellite],
+                                         Data.start_lon3[Data.satellite[:]==Satellite]), axis=0)
+        else:
+            start_lats = np.concatenate((Data.start_lat1,Data.start_lat2,Data.start_lat3), axis=0)
+            start_lons = np.concatenate((Data.start_lon1, Data.start_lon2, Data.start_lon3), axis=0)
 
         try:
             new_coords = proj.transform_points(trans, np.array(start_lons), np.array(start_lats))
         except KeyError:
             xi, yj = (0,0)
+            sys.exit("Coordinate error when mapping the coverage")
 
         # Plotting histogram (H) and converting bin values to 0 or 1 range=[[lxextent,uxextent], [lyextent,uyextent]]
         H, _, _ = np.histogram2d(new_coords[:,0], new_coords[:,1], bins=(self.xbins, self.ybins))
-
         # Changing size of total histogram (only on first run)
         if self.H.shape == (0,):
             self.H.resize(H.shape)
 
         # Adding interval-specific histogram to total histogram
         H[H > 0.0] = 1.0
+
+        self.covered_area = (np.nansum(H)*(int(self.resolution)**2))
         self.H = self.H.copy() + H
+
+
+        self.covered_area_tseries.append(self.covered_area)
+        self.timeaxis.append(Time.t)
         self.ntime = self.ntime + 1
+
+
+
 

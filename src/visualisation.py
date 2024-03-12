@@ -30,6 +30,9 @@ Includes:
 - show_spatial_coverage :: Creates a figure showing the percent daily coverage of the SIDRR
                            dataset, in the analysis period and in 10x10km bins.
 
+- show_coverage_tseries :: Creates a figure showing timeseries of the SIDRR data coverage
+                           based on 10x10km bins.
+
 
 Authors: Mathieu Plante, Amelie Bouchat, Damien Ringeisen, Lekima Yakuden, Beatrice Duval
 """
@@ -39,11 +42,9 @@ import os
 import sys
 parent = os.path.dirname(os.path.dirname(__file__))
 sys.path.insert(0,parent)
-#from time import strftime
-#import time
+from datetime import datetime
 from netCDF4 import Dataset
 import numpy as np
-#import pylab as p
 import pyproj as pyproj
 import cartopy.crs as ccrs
 import matplotlib as mpl
@@ -53,9 +54,7 @@ import cartopy.feature as cfeature
 from tqdm import tqdm
 import haversine as hs
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-#from scipy.interpolate import make_interp_spline
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
-#mpl.rcParams['text.usetex']=True
 
 
 class visualisation:
@@ -70,7 +69,7 @@ class visualisation:
         IO            = config['IO']
         output_folder = IO['output_folder']
         exp           = IO['exp']
-        self.figsPath =  output_folder + '/' + exp + '/figs/Deformations/'
+        self.figsPath =  output_folder + '/' + exp + '/'
         os.makedirs(self.figsPath, exist_ok=True)
 
 
@@ -733,6 +732,66 @@ class visualisation:
 
         fig_path = self.figsPath + prefix + '_Coverage_area_map.png'
         print('Saving coverage 2D histogram figure at ' + fig_path)
+        fig.savefig(fig_path, dpi=600)
+        plt.close(fig)
+
+        return
+
+
+    def show_coverage_tseries(self, Data1 = None,
+                                    Data2 = None,
+                                    Data3 = None,
+                                    datestring = None):
+
+        labels_list = ['2017',' ', '2018',
+                              ' ', '2019',
+                              ' ', '2020',
+                              ' ', '2021',
+                              ' ', '2022',
+                              ' ', '2023',]
+
+        date_list = [datetime(2017,1,1,hour=0),
+                     datetime(2017,7,1,hour=0),
+                     datetime(2018,1,1,hour=0),
+                     datetime(2018,7,1,hour=0),
+                     datetime(2019,1,1,hour=0),
+                     datetime(2019,7,1,hour=0),
+                     datetime(2020,1,1,hour=0),
+                     datetime(2020,7,1,hour=0),
+                     datetime(2021,1,1,hour=0),
+                     datetime(2021,7,1,hour=0),
+                     datetime(2022,1,1,hour=0),
+                     datetime(2022,7,1,hour=0),
+                     datetime(2023,1,1,hour=0)]
+
+        #2022-01-01 is day number 44562 since 1900-01-01
+        reference_date = datetime(2022,1,1,hour=0)
+
+        DateTicks = []
+        for date in date_list:
+            new_tick = 44562.0 +(date - reference_date).days + ((date - reference_date).seconds /(24*60*60))
+            DateTicks.append(new_tick)
+
+
+        fig = plt.figure(figsize=(5, 4))
+        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
+
+        plt.plot(Data1.timeaxis,Data1.covered_area_tseries,'k-')
+        plt.plot(Data2.timeaxis,Data2.covered_area_tseries,'b-')
+        plt.plot(Data3.timeaxis,Data3.covered_area_tseries,'orange')
+
+        plt.xticks(DateTicks,labels_list)
+        plt.xlim(Data1.timeaxis[0],Data1.timeaxis[len(Data1.timeaxis)-1])
+
+
+        #Save figure in output folder
+        if datestring is None:
+            prefix = "undefined_date"
+        else:
+            prefix = datestring
+
+        fig_path = self.figsPath + prefix + '_Coverage_tseries.png'
+        print('Saving coverage time series at ' + fig_path)
         fig.savefig(fig_path, dpi=600)
         plt.close(fig)
 

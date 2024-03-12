@@ -41,37 +41,46 @@ class TimeUtil:
             self.EndHour = int(config['end_hour'])
 
         self.tstep = 24
-        self.StartDate = datetime(self.StartYear,self.StartMonth,self.StartDay,hour=self.StartHour)
+        self.reference_date = datetime(2022,1,1,hour=0)
 
+        self.StartDate = datetime(self.StartYear,self.StartMonth,self.StartDay,hour=self.StartHour)
         self.ThisTime = self.StartDate
+        self.t = self.time_ref_number(date_pt = self.ThisTime)
+
+        self.tstart = self.time_ref_number(date_pt = self.StartDate)
 
         if self.EndYear == self.StartYear:
             self.EndDate = datetime(self.EndYear,self.EndMonth,self.EndDay,hour=self.EndHour)
         else:
             self.EndDate = datetime(self.StartYear,self.EndMonth,self.EndDay,hour=self.EndHour)
+        self.tend   = self.time_ref_number(date_pt = self.EndDate)
 
         self.NextTime = self.ThisTime + timedelta(seconds=self.tstep*60*60)
-
         self.LastTime = self.ThisTime - timedelta(seconds=self.tstep*60*60)
 
-        self.ndays = int((self.EndDate - self.StartDate).days+1)
-
-        self.nstep = int(int((self.EndDate - self.StartDate).days)*24.0/self.tstep + int((self.EndDate - self.StartDate).seconds/(self.tstep*60*60) +1))
-
-        if self.EndYear != self.StartYear:
-            self.nstep = int(self.nstep * (self.EndYear-self.StartYear))
+        self.ndays = int(self.tend - self.tstart)+1
+        self.nstep = (self.tend - self.tstart)*24.0/self.tstep
 
         self.year = self.StartDate.strftime("%Y")
         self.dailyclock = 0
+
+        #Make strings
         self.StartDate_str = self.StartDate.strftime("%Y%m%d")
         self.EndDate_str = self.EndDate.strftime("%Y%m%d")
         ThisTime_str = self.ThisTime.strftime("%Y%m%d")
         NextTime_str = self.NextTime.strftime("%Y%m%d")
         self.ThisTimeFile = "RCMS1SID_%s_%s_dt72_tol72_dx.nc" % (ThisTime_str, NextTime_str)
-
-        self.MLDP_init_date = self.StartDate - timedelta(days=1)
         self.NextTimeFile = self.NextTime.strftime("%Y%m%d%H_000")
         self.LastTimeFile = self.LastTime.strftime("%Y%m%d%H_000")
+
+    def time_ref_number(self, date_pt = None):
+    #------------------------------------------------
+    # Get the time in days since 1900/01/01
+    #------------------------------------------------
+        t = (44562.0 +
+                   (date_pt - self.reference_date).days +
+                   ((date_pt - self.reference_date).seconds/(24*60*60)))
+        return t
 
     def daterange(self, nmax = None):
 #------------------------------------------------

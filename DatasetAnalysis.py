@@ -73,6 +73,7 @@ if __name__ == '__main__':
 
         ThisTime = TimeTool.ThisTime - timedelta(days=Delta_days_init-tic)
         NextTime = ThisTime + timedelta(seconds=TimeTool.tstep*60*60)
+        print(ThisTime,NextTime)
         ThisTime_str = ThisTime.strftime("%Y%m%d")
         NextTime_str = NextTime.strftime("%Y%m%d")
 
@@ -83,7 +84,8 @@ if __name__ == '__main__':
 
         #Fetch the path to netcdf
         Sat = config['Metadata']['Satellite_Source']
-        ThisTimeFile = "%sSID_%s_%s_dt72_tol72_dx.nc" % (Sat,ThisTime_str, NextTime_str)
+#        ThisTimeFile = "%sSID_%s_%s_dt72_tol72_dx.nc" % (Sat,ThisTime_str, NextTime_str)
+        ThisTimeFile = "SIDRR_%s.nc" % ThisTime_str
         filePath = path + ThisTimeFile
 
         #Load netcdf data
@@ -96,7 +98,6 @@ if __name__ == '__main__':
         Data.filter_data(indices = indices)
         Data.start_time = Data.start_time + Head_start
         Data.end_time = Data.end_time + Head_start
-
         #Stack in the Mem data carrier
         if tic == 0 or Data_Mem is None:
             Data_Mem = Data
@@ -116,11 +117,14 @@ if __name__ == '__main__':
     Head_start = Delta_days_init*60*60*24
 
     #Initialize statistics objects
-    if config['visualize']['show_spatial_coverage']:
-        FreqMap = Coverage_map()
+    if config['visualize']['show_spatial_coverage'] == 'True':
+        print("Yep, this is working, not preparing the FreqMap objects")
+        FreqMap = Coverage_map(label = 'all')
+        FreqMap_S1 = Coverage_map(label = 'S1')
+        FreqMap_RCM = Coverage_map(label = 'RCM')
 
     #Initialise 1d histograms for the triangle areas.
-    if config['visualize']['show_spatial_scale_dist']:
+    if config['visualize']['show_spatial_scale_dist'] == 'True':
         A_dist_all = Data_Distribution(LeftBC= 0.0, RightBC = 20.0, nbins = 80, label = "all")
         A_dist_S1 = Data_Distribution(LeftBC= 0.0, RightBC = 20.0, nbins = 80, label = "S1")
         A_dist_RCM = Data_Distribution(LeftBC= 0.0, RightBC = 20.0, nbins = 80, label = "RCM")
@@ -135,6 +139,7 @@ if __name__ == '__main__':
 
         # Update time and data paths
         TimeTool.ThisTime = ThisTime
+        TimeTool.t = TimeTool.time_ref_number(date_pt = ThisTime)
         TimeTool.NextTime = TimeTool.ThisTime + timedelta(seconds=TimeTool.tstep*60*60)
 
         #Use to limit the analysis to specific months. Otherwise, ignore.
@@ -142,49 +147,54 @@ if __name__ == '__main__':
             continue
         ThisTime_str = TimeTool.ThisTime.strftime("%Y%m%d")
         NextTime_str = TimeTool.NextTime.strftime("%Y%m%d")
-        TimeTool.ThisTimeFile = "%sSID_%s_%s_dt72_tol72_dx.nc" % (Sat,ThisTime_str, NextTime_str)
+#        TimeTool.ThisTimeFile = "%sSID_%s_%s_dt72_tol72_dx.nc" % (Sat,ThisTime_str, NextTime_str)
+        TimeTool.ThisTimeFile = "SIDRR_%s.nc" % ThisTime_str
         filePath = path + TimeTool.ThisTimeFile
 
         #Load visualisation tool
         visuals = visualisation(config=config)
 
-        #Load new Data from SIDRR and stack to carrier
+        #Load new Data from SIDRR and stack with data from carrier
         Data = SID_dataset(FileName= filePath, config=config)
         Data.start_time = Data.start_time + Head_start
         Data.end_time = Data.end_time + Head_start
         Data.Concatenate_data(Data2 = Data_Mem)
 
+
+        #Add and distribute data to cumulating histograms
+        if config['visualize']['show_spatial_coverage'] == 'True':
+            FreqMap.add2hist_2D(Data = Data, Time = TimeTool)
+            FreqMap_S1.add2hist_2D(Data = Data, Satellite = int(1), Time = TimeTool)
+            FreqMap_RCM.add2hist_2D(Data = Data, Satellite = int(0), Time = TimeTool)
+
+        if config['visualize']['show_spatial_scale_dist'] == 'True':
+            A_dist_all.add2hist_1D(Data = Data.A[:])
+            A_dist_S1.add2hist_1D(Data = Data.A[Data.satellite[:]==1])
+            A_dist_RCM.add2hist_1D(Data = Data.A[Data.satellite[:]==0])
+
         #------------------------------------------------------------------
-        # Produce figures to visualise the dataset characteristics
+        # Visualise data from specific date
         #------------------------------------------------------------------
 
         #Figure showing the start and end points in a file
-        if config['visualize']['plot_start_end_points']:
-           visuals.plot_start_end_points(data = Data, datestring  = ThisTime_str)
+        if config['visualize']['plot_start_end_points'] == 'True':
+            visuals.plot_start_end_points(data = Data, datestring  = ThisTime_str)
 
         #Figure showing the stacked SAR image areas.
-        if config['visualize']['plot_stacked_pairs']:
-           visuals.show_stacked_pairs(data = Data, datestring  = ThisTime_str)
+        if config['visualize']['plot_stacked_pairs'] == 'True':
+            visuals.show_stacked_pairs(data = Data, datestring  = ThisTime_str)
 
         #Figure showing the triangulated data of specified SAR image pair ID.
-        if config['visualize']['plot_triangulated_data']:
+        if config['visualize']['plot_triangulated_data'] == 'True':
             visuals.plot_triangles(data=Data, no = int(2), triangle_zoom = True, datestring = ThisTime_str)
 
         #Figure showing normal, shear and rotation rates.
-        if config['visualize']['plot_deformation']:
+        if config['visualize']['plot_deformation'] == 'True':
             visuals.plot_deformations(data = Data, datestring = ThisTime_str)
             visuals.show_tripcolor_field(data=Data, Field = Data.A,
                                           title = "Triangle Areas", label = "Area",
                                           datestring=ThisTime_str)
-        #Figure showing the spatial coverage of the dataset
-        if config['visualize']['show_spatial_coverage']:
-            FreqMap.add2hist_2D(Data = Data)
 
-        #Distribute the triangle areas in 1d histogram, and add to bins.
-        if config['visualize']['show_spatial_scale_dist']:
-            A_dist_all.add2hist_1D(Data = Data.A[:])
-            A_dist_S1.add2hist_1D(Data = Data.A[Data.satellite[:]==1])
-            A_dist_RCM.add2hist_1D(Data = Data.A[Data.satellite[:]==0])
 
         #--------------------------------------------------------------------------------
         #Update the data carrier for the next timestep
@@ -199,16 +209,26 @@ if __name__ == '__main__':
         del visuals
         del Data
 
-    visuals = visualisation(config = config)
 
+    #--------------------------------------------------------------------------------
+    # Make figures showing dataset characteristics
+    #--------------------------------------------------------------------------------
+
+    visuals = visualisation(config = config)
     # Make figure showing the spatio-temportal coverage of the SIDRR data in the analysed period
-    if config['visualize']['show_spatial_coverage']:
+    if config['visualize']['show_spatial_coverage'] == 'True':
         visuals.show_spatial_coverage(distribution_2D = FreqMap, datestring = TimeTool.StartDate_str + '_' + TimeTool.EndDate_str)
 
     # Make figure showing the distribution of data spatial scales
-    if config['visualize']['show_spatial_scale_dist']:
+    if config['visualize']['show_spatial_scale_dist'] == 'True':
         visuals.plot_area_dist(dist1 = A_dist_S1,
                                datestring = TimeTool.StartDate_str + '_' + TimeTool.EndDate_str)
+
+    if config['visualize']['show_coverage_tseries'] == 'True':
+        visuals.show_coverage_tseries(Data1 = FreqMap,
+                                      Data2 = FreqMap_S1,
+                                      Data3 = FreqMap_RCM,
+                                      datestring = TimeTool.StartDate_str + '_' + TimeTool.EndDate_str)
 
     # Display the computation time
     print("--- %s seconds ---" % (time.time() - start_time))
