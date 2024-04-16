@@ -53,6 +53,7 @@ if __name__ == '__main__':
 
     path = config['IO']['netcdf_path']
     TimeTool = TimeUtil(config = config['Date_options'])
+    Period = config['Date_options']['Period']
 
     #--------------------------------------------------------------
     # Initialise with 6 earlier days to get all data for given day.
@@ -125,9 +126,19 @@ if __name__ == '__main__':
 
     #Initialise 1d histograms for the triangle areas.
     if config['visualize']['show_spatial_scale_dist'] == 'True':
-        A_dist_all = Data_Distribution(LeftBC= 0.0, RightBC = 20.0, nbins = 80, label = "all")
-        A_dist_S1 = Data_Distribution(LeftBC= 0.0, RightBC = 20.0, nbins = 80, label = "S1")
-        A_dist_RCM = Data_Distribution(LeftBC= 0.0, RightBC = 20.0, nbins = 80, label = "RCM")
+        #Spatial scale distributions
+        A_dist_all = Data_Distribution(LeftBC= 0.0, RightBC = 20.0, nbins = 60, label = "all")
+        A_dist_S1  = Data_Distribution(LeftBC= 0.0, RightBC = 20.0, nbins = 60, label = "S1")
+        A_dist_RCM = Data_Distribution(LeftBC= 0.0, RightBC = 20.0, nbins = 60, label = "RCM")
+        #Temporal scale distributions
+        T_dist_all = Data_Distribution(LeftBC= 6.0, RightBC = 150.0, nbins = 12, label = "all")
+        T_dist_S1  = Data_Distribution(LeftBC= 6.0, RightBC = 150.0, nbins = 12, label = "S1")
+        T_dist_RCM = Data_Distribution(LeftBC= 6.0, RightBC = 150.0, nbins = 12, label = "RCM")
+        #Error distributions
+        errI_dist  = Data_Distribution(LeftBC= 0.0, RightBC = 1.0, nbins = 100, label = "eI")
+        errII_dist = Data_Distribution(LeftBC= 0.0, RightBC = 1.0, nbins = 100, label = "eII")
+        s2n_dist   = Data_Distribution(LeftBC= 0.0, RightBC = 5.0, nbins = 80, label = "signal-to-noise")
+
 
 
     # Iterating over each day
@@ -142,12 +153,8 @@ if __name__ == '__main__':
         TimeTool.t = TimeTool.time_ref_number(date_pt = ThisTime)
         TimeTool.NextTime = TimeTool.ThisTime + timedelta(seconds=TimeTool.tstep*60*60)
 
-        #Use to limit the analysis to specific months. Otherwise, ignore.
-        if TimeTool.ThisTime.month > 12 and TimeTool.ThisTime.month < 1:
-            continue
         ThisTime_str = TimeTool.ThisTime.strftime("%Y%m%d")
         NextTime_str = TimeTool.NextTime.strftime("%Y%m%d")
-#        TimeTool.ThisTimeFile = "%sSID_%s_%s_dt72_tol72_dx.nc" % (Sat,ThisTime_str, NextTime_str)
         TimeTool.ThisTimeFile = "SIDRR_%s.nc" % ThisTime_str
         filePath = path + TimeTool.ThisTimeFile
 
@@ -160,38 +167,50 @@ if __name__ == '__main__':
         Data.end_time = Data.end_time + Head_start
         Data.Concatenate_data(Data2 = Data_Mem)
 
+        #Use to limit the analysis to specific months. Otherwise, ignore.
+        if Period == 'all' or TimeTool.ThisTime.month == int(Period):
 
-        #Add and distribute data to cumulating histograms
-        if config['visualize']['show_spatial_coverage'] == 'True':
-            FreqMap.add2hist_2D(Data = Data, Time = TimeTool)
-            FreqMap_S1.add2hist_2D(Data = Data, Satellite = int(1), Time = TimeTool)
-            FreqMap_RCM.add2hist_2D(Data = Data, Satellite = int(0), Time = TimeTool)
+            #Add and distribute data to cumulating histograms
+            if config['visualize']['show_spatial_coverage'] == 'True':
+                FreqMap.add2hist_2D(Data = Data, Time = TimeTool)
+                FreqMap_S1.add2hist_2D(Data = Data, Satellite = int(1), Time = TimeTool)
+                FreqMap_RCM.add2hist_2D(Data = Data, Satellite = int(0), Time = TimeTool)
 
-        if config['visualize']['show_spatial_scale_dist'] == 'True':
-            A_dist_all.add2hist_1D(Data = Data.A[:])
-            A_dist_S1.add2hist_1D(Data = Data.A[Data.satellite[:]==1])
-            A_dist_RCM.add2hist_1D(Data = Data.A[Data.satellite[:]==0])
+            if config['visualize']['show_spatial_scale_dist'] == 'True':
+                #Spatial distribution
+                A_dist_all.add2hist_1D(Data = (Data.A[:]**0.5)/1000.0)
+                A_dist_S1.add2hist_1D(Data = (Data.A[Data.satellite[:]==1]**0.5)/1000.0)
+                A_dist_RCM.add2hist_1D(Data = (Data.A[Data.satellite[:]==0]**0.5)/1000.0)
+                #Temporal distribution
+                T_dist_all.add2hist_1D(Data = (Data.end_time-Data.start_time)/3600.0)
+                T_dist_S1.add2hist_1D(Data = (Data.end_time[Data.satellite[:]==1]- Data.start_time[Data.satellite[:]==1])/3600.0 )
+                T_dist_RCM.add2hist_1D(Data = (Data.end_time[Data.satellite[:]==0] - Data.start_time[Data.satellite[:]==0])/3600.0)
+                #Error distribution
+                errI_dist.add2hist_1D(Data = Data.errI[:])
+                errII_dist.add2hist_1D(Data = Data.errII[:])
+                s2n_dist.add2hist_1D(Data = Data.s2n[:])
 
-        #------------------------------------------------------------------
-        # Visualise data from specific date
-        #------------------------------------------------------------------
+            #------------------------------------------------------------------
+            # Visualise data from specific date
+            #------------------------------------------------------------------
 
-        #Figure showing the start and end points in a file
-        if config['visualize']['plot_start_end_points'] == 'True':
-            visuals.plot_start_end_points(data = Data, datestring  = ThisTime_str)
+            #Figure showing the start and end points in a file
+            if config['visualize']['plot_start_end_points'] == 'True':
+                visuals.plot_start_end_points(data = Data, datestring  = ThisTime_str)
 
-        #Figure showing the stacked SAR image areas.
-        if config['visualize']['plot_stacked_pairs'] == 'True':
-            visuals.show_stacked_pairs(data = Data, datestring  = ThisTime_str)
+            #Figure showing the stacked SAR image areas.
+            if config['visualize']['plot_stacked_pairs'] == 'True':
+                visuals.show_stacked_pairs(data = Data, datestring  = ThisTime_str)
 
-        #Figure showing the triangulated data of specified SAR image pair ID.
-        if config['visualize']['plot_triangulated_data'] == 'True':
-            visuals.plot_triangles(data=Data, no = int(2), triangle_zoom = True, datestring = ThisTime_str)
+            #Figure showing the triangulated data of specified SAR image pair ID.
+            if config['visualize']['plot_triangulated_data'] == 'True':
+                visuals.plot_triangles(data=Data, idpair = int(2), triangle_zoom = True, datestring = ThisTime_str)
 
-        #Figure showing normal, shear and rotation rates.
-        if config['visualize']['plot_deformation'] == 'True':
-            visuals.plot_deformations(data = Data, datestring = ThisTime_str)
-            visuals.show_tripcolor_field(data=Data, Field = Data.A,
+            #Figure showing normal, shear and rotation rates.
+            if config['visualize']['plot_deformation'] == 'True':
+                visuals.plot_deformations(data = Data, datestring = ThisTime_str)
+                visuals.plot_errors(data = Data, datestring = ThisTime_str)
+                visuals.show_tripcolor_field(data=Data, Field = Data.A,
                                           title = "Triangle Areas", label = "Area",
                                           datestring=ThisTime_str)
 
@@ -217,11 +236,18 @@ if __name__ == '__main__':
     visuals = visualisation(config = config)
     # Make figure showing the spatio-temportal coverage of the SIDRR data in the analysed period
     if config['visualize']['show_spatial_coverage'] == 'True':
-        visuals.show_spatial_coverage(distribution_2D = FreqMap, datestring = TimeTool.StartDate_str + '_' + TimeTool.EndDate_str)
+        visuals.show_spatial_coverage(distribution_2D = FreqMap,
+                                      distribution_2D_2 = FreqMap_S1,
+                                      distribution_2D_3 = FreqMap_RCM,
+                                      datestring = TimeTool.StartDate_str + '_' + TimeTool.EndDate_str)
 
     # Make figure showing the distribution of data spatial scales
     if config['visualize']['show_spatial_scale_dist'] == 'True':
-        visuals.plot_area_dist(dist1 = A_dist_S1,
+        visuals.plot_area_dist(dist1 = A_dist_S1,dist2 = A_dist_RCM, distDt1 = T_dist_S1, distDt2 = T_dist_RCM,
+                               datestring = TimeTool.StartDate_str + '_' + TimeTool.EndDate_str)
+        visuals.plot_error_dist(dist1 = errI_dist, dist2 = errII_dist,
+                               datestring = TimeTool.StartDate_str + '_' + TimeTool.EndDate_str)
+        visuals.plot_s2n_dist(dist1 = s2n_dist,
                                datestring = TimeTool.StartDate_str + '_' + TimeTool.EndDate_str)
 
     if config['visualize']['show_coverage_tseries'] == 'True':

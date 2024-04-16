@@ -107,11 +107,11 @@ class visualisation:
 
         # Fetch a specific image pair
         j = np.unique(data.day_flag)[0]
-        no_day = data.no[np.where(data.day_flag==j)]
+        no_day = data.idpair[np.where(data.day_flag==j)]
         i = np.unique(no_day)[0]
 
         # Get the first and last row of data corresponding to the specific pair of SAR images
-        condi = (data.no[:] == i) & (data.day_flag[:] == j)
+        condi = (data.idpair[:] == i) & (data.day_flag[:] == j)
         min_index = np.where(condi)[0][0]
         max_index = np.where(condi)[0][-1]+1
 
@@ -178,18 +178,18 @@ class visualisation:
 
         # Selecting a specific SAR image pair (Unique triangulations)
         for j in tqdm(np.unique(data.day_flag)):
-          no_day = data.no[np.where(data.day_flag==j)]
+          no_day = data.idpair[np.where(data.day_flag==j)]
           for i in tqdm(np.unique(no_day)):
 
             # Get the first and last row of data corresponding to the specific pair of SAR images
-            condi = (data.no[:] == i) & (data.day_flag[:] == j)
+            condi = (data.idpair[:] == i) & (data.day_flag[:] == j)
             min_index = np.where(condi)[0][0]
             max_index = np.where(condi)[0][-1]+1
 
             # Get vertex ids from specific pair, and stack into triangle array, for tripcolor
-            triangles = np.stack((data.idx1[min_index:max_index],
-                                  data.idx2[min_index:max_index],
-                                  data.idx3[min_index:max_index]), axis=-1)
+            triangles = np.stack((data.ids1[min_index:max_index],
+                                  data.ids2[min_index:max_index],
+                                  data.ids3[min_index:max_index]), axis=-1)
 
             #Reconstruct the position vectors used for triangulation
             LatVector, LonVector = data.reconstruct_position_lists(min_index = min_index, max_index = max_index)
@@ -279,23 +279,22 @@ class visualisation:
 
         # Looping over SAR image pairs (each image pair IDs from each daily netcdf)
         for j in tqdm(np.unique(data.day_flag)):
-          no_day = data.no[np.where(data.day_flag==j)]
+          no_day = data.idpair[np.where(data.day_flag==j)]
           for i in tqdm(np.unique(no_day)):
 
             # Get the first and last row of data corresponding to the specific pair of SAR images
-            condi = (data.no[:] == i) & (data.day_flag[:] == j)
+            condi = (data.idpair[:] == i) & (data.day_flag[:] == j)
             min_index = np.where(condi)[0][0]
             max_index = np.where(condi)[0][-1]+1
 
             # Get vertex ids from specific pair, and stack into triangle array, for tripcolor
-            triangles = np.stack((data.idx1[min_index:max_index],
-                                  data.idx2[min_index:max_index],
-                                  data.idx3[min_index:max_index]), axis=-1)
+            triangles = np.stack((data.ids1[min_index:max_index],
+                                  data.ids2[min_index:max_index],
+                                  data.ids3[min_index:max_index]), axis=-1)
 
             #Reconstruct the position vectors used for triangulation
             LatVector, LonVector = data.reconstruct_position_lists(min_index = min_index, max_index = max_index)
 
-            # Keep only deformation data from specific SAR image pair
             div_colours = data.div[min_index:max_index]
             shr_colours = data.shr[min_index:max_index]
             vrt_colours = data.vrt[min_index:max_index]
@@ -387,17 +386,17 @@ class visualisation:
 
         # Looping over SAR image pairs (each image pair IDs in the netcdf)
         j  = np.unique(data.day_flag)[0]
-        no_day = data.no[np.where(data.day_flag==j)]
+        no_day = data.idpair[np.where(data.day_flag==j)]
         for i in tqdm(np.unique(no_day)):
             # Get the first and last row of data corresponding to the specific pair of SAR images
-            condi = (data.no[:] == i) & (data.day_flag[:] == j)
+            condi = (data.idpair[:] == i) & (data.day_flag[:] == j)
             min_index = np.where(condi)[0][0]
             max_index = np.where(condi)[0][-1]+1
 
             # Get vertex ids from specific pair, and stack into triangle array, for tripcolor
-            triangles = np.stack((data.idx1[min_index:max_index],
-                                  data.idx2[min_index:max_index],
-                                  data.idx3[min_index:max_index]), axis=-1)
+            triangles = np.stack((data.ids1[min_index:max_index],
+                                  data.ids2[min_index:max_index],
+                                  data.ids3[min_index:max_index]), axis=-1)
 
             # Get the list of tracked position and add scatter in figure
             LatVector, LonVector = data.reconstruct_position_lists(min_index = min_index, max_index = max_index)
@@ -441,7 +440,7 @@ class visualisation:
 
 
 
-    def plot_triangles(self, data=None,  datestring=None, no = None, triangle_zoom = None):
+    def plot_triangles(self, data=None,  datestring=None, idpair = None, triangle_zoom = None):
         """
         This function makes figures zooming on the triangulared data
         from a specific SAR image pair.
@@ -473,18 +472,18 @@ class visualisation:
 
         # Fetch the image pair data
         j = np.unique(data.day_flag)[0]
-        no_day = data.no[np.where(data.day_flag==j)]
-        i = int(no)
+        no_day = data.idpair[np.where(data.day_flag==j)]
+        i = int(idpair)
 
         # Get the first and last row of data corresponding to the specific pair of SAR images
-        condi = (data.no[:] == i) & (data.day_flag[:] == j)
+        condi = (data.idpair[:] == i) & (data.day_flag[:] == j)
         min_index = np.where(condi)[0][0]
         max_index = np.where(condi)[0][-1]+1
 
         # Get vertex ids from specific pair, and stack into triangle array, for tripcolor
-        triangles = np.stack((data.idx1[min_index:max_index],
-                              data.idx2[min_index:max_index],
-                              data.idx3[min_index:max_index]), axis=-1)
+        triangles = np.stack((data.ids1[min_index:max_index],
+                              data.ids2[min_index:max_index],
+                              data.ids3[min_index:max_index]), axis=-1)
 
         #Reconstruct the position vectors used for triangulation
         LatVector, LonVector = data.reconstruct_position_lists(min_index = min_index, max_index = max_index)
@@ -537,7 +536,7 @@ class visualisation:
         # Labeling and saving
         #--------------------------------------------
 
-        plt.title("Triangulated data for pair 'no=%s'" % no )
+        plt.title("Triangulated data for pair id = %s" % idpair )
         ax_tris.gridlines()
         ax_tris.add_feature(cfeature.LAND, zorder=100, edgecolor='k')
 
@@ -547,7 +546,7 @@ class visualisation:
         else:
             prefix = datestring
 
-        tri_path  = '%s%s_pair_no_%s.png' % (self.figsPath,prefix,no)
+        tri_path  = '%s%s_pair_id_%s.png' % (self.figsPath,prefix,idpair)
         print('Saving triangulated data figure at ',tri_path)
         fig_tris.savefig(tri_path, dpi=600)
         plt.close(fig_tris)
@@ -569,7 +568,7 @@ class visualisation:
             #---------------------------------
 
             #Make ID and position vectors by concatenating the 3 vertex IDs and positions
-            IDs = np.concatenate((data.idx1[min_index:max_index], data.idx2[min_index:max_index], data.idx3[min_index:max_index]), axis=0)
+            IDs = np.concatenate((data.ids1[min_index:max_index], data.ids2[min_index:max_index], data.ids3[min_index:max_index]), axis=0)
 
             #Also get the end point coordinates
             LatVectorEnd, LonVectorEnd = data.reconstruct_position_lists(min_index = min_index, max_index = max_index, EndPoint = True)
@@ -622,7 +621,7 @@ class visualisation:
             plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
                           ncol=2, mode="expand", borderaxespad=0.,fontsize=10.0 )
 
-            zoom_path   = '%s%s_pair_no_%s_zoomed.png' % (self.figsPath,prefix,no)
+            zoom_path   = '%s%s_pair_id_%s_zoomed.png' % (self.figsPath,prefix,idpair)
             print('Saving zoomed data figure at ',zoom_path)
 
             fig_zoom.savefig(zoom_path, dpi=600)
@@ -631,7 +630,9 @@ class visualisation:
         return
 
 
-    def plot_area_dist(self, dist1 = None, dist2 = None, dist3 = None, datestring = None):
+    def plot_area_dist(self, dist1 = None, dist2 = None, dist3 = None,
+                             distDt1 = None, distDt2 = None, distDt3 = None,
+                             datestring = None):
 
         """
         This function produces a figure showing distributions of
@@ -644,43 +645,94 @@ class visualisation:
         """
 
         # figure initialization
-        fig = plt.figure(figsize=(6.5, 5.5))
-        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
+        fig = plt.figure(figsize=(5, 8))
+
+        #---------------------------------------
+        #Pannel with the A distribution
+        #---------------------------------------
+
+        ax = fig.add_axes([0.1, 0.57, 0.8, 0.38])
         if dist2 is None and dist3 is None:
-            plt1 = plt.bar(dist1.bins,dist1.distribution/np.sum(dist1.distribution),width = 1, color = 'b')
+            plt1 = plt.bar(dist1.bins,dist1.distribution/np.sum(dist1.distribution),width = dist1.BinsWidth, color = 'b')
         else:
-            plt1 = plt.bar(dist1.bins,dist1.distribution/np.sum(dist1.distribution),width = 1, alpha = 0.5, color = 'b')
+            plt1 = plt.bar(dist1.bins,dist1.distribution/np.sum(dist1.distribution),width = dist1.BinsWidth, alpha = 0.5, color = 'darkblue')
         if dist2 is not None:
-            plt2 = plt.bar(dist2.bins,dist2.distribution/np.sum(dist2.distribution),width = 1, alpha = 0.5, color = 'y')
+            plt2 = plt.bar(dist2.bins,dist2.distribution/np.sum(dist2.distribution),width = dist2.BinsWidth, alpha = 0.5, color = 'darkorange')
         if dist3 is not None:
-            plt3 = plt.bar(dist3.bins,dist3.distribution/np.sum(dist3.distribution),width = 1, alpha = 0.5, color = 'r')
+            plt3 = plt.bar(dist3.bins,dist3.distribution/np.sum(dist3.distribution),width = dist3.BinsWidth, alpha = 0.7, color = 'y')
 
         plt.xticks(dist1.bins)
         if dist2 is not None:
-            plt.legend((dist1.label,dist2.label,dist3.label))
-
+            if dist3 is not None:
+                plt.legend((dist1.label,dist2.label,dist3.label))
+            else:
+                plt.legend((dist1.label,dist2.label))
         dens = True
         if dens:
             plt.ylabel('PDF')
         else :
             plt.ylabel('Number of triangles')
-        plt.xlabel('Nominal size (km)')
+        plt.xlabel('L (km)')
         plt.xticks(range(0,25,5))
+        plt.xlim(0,20)
 
         # Make figure path name and save
         if datestring is None:
             prefix = "undefined_date"
         else:
             prefix = datestring
-        fig_path = self.figsPath + prefix + '_A_hist.png'
+        fig_path = self.figsPath + prefix + '_AT_hist.png'
         fig.savefig(fig_path, bbox_inches='tight', dpi=600)
+
+        #---------------------------------------
+        #Pannel with the Delta-t distribution
+        #---------------------------------------
+        if distDt1 is not None:
+            ax2 = fig.add_axes([0.1, 0.07, 0.8, 0.38])
+
+            if distDt2 is None and distDt3 is None:
+                plt1 = plt.bar(distDt1.bins,distDt1.distribution/np.sum(distDt1.distribution),width = distDt1.BinsWidth, color = 'darkblue')
+            else:
+                plt1 = plt.bar(distDt1.bins,distDt1.distribution/np.sum(distDt1.distribution),width = distDt1.BinsWidth, alpha = 0.5, color = 'darkblue')
+            if distDt2 is not None:
+                plt2 = plt.bar(distDt2.bins,distDt2.distribution/np.sum(distDt2.distribution),width = distDt2.BinsWidth, alpha = 0.5, color = 'darkorange')
+            if distDt3 is not None:
+                plt3 = plt.bar(distDt3.bins,distDt3.distribution/np.sum(distDt3.distribution),width = distDt3.BinsWidth, alpha = 0.7, color = 'y')
+
+            plt.xticks(distDt1.bins)
+            if distDt2 is not None:
+                if distDt3 is not None:
+                    plt.legend((distDt1.label,distDt2.label,distDt3.label))
+                else:
+                    plt.legend((distDt1.label,distDt2.label))
+            dens = True
+            if dens:
+                plt.ylabel('PDF')
+            else :
+                plt.ylabel('Number of triangles')
+            plt.xlabel('$\Delta$t (h)')
+            #plt.xticks(range(0,144,6))
+            plt.xlim(0,150)
+
+            # Make figure path name and save
+            if datestring is None:
+                prefix = "undefined_date"
+            else:
+                prefix = datestring
+            fig_path = self.figsPath + prefix + '_AT_hist.png'
+            fig.savefig(fig_path, bbox_inches='tight', dpi=600)
+
+
         plt.close(fig)
 
         return
 
 
 
-    def show_spatial_coverage(self, distribution_2D = None, datestring = None):
+    def show_spatial_coverage(self, distribution_2D = None,
+                                    distribution_2D_2 = None,
+                                    distribution_2D_3 = None,
+                                    datestring = None):
         """
         This function produces a figure showing the daily coverage frequency
         in the SIDRR data, in 10x10 km bins, in the analysis time period
@@ -696,32 +748,79 @@ class visualisation:
         #Create figure and prepare projection
         proj = ccrs.NorthPolarStereo(central_longitude=0)
         trans = ccrs.Geodetic()
-        fig = plt.figure(figsize=(6.5, 5.5))
-        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8],projection = proj)
 
+        if distribution_2D_2 is None:
+            fig = plt.figure(figsize=(6.5, 5.5))
+            ax = fig.add_axes([0.1, 0.1, 0.8, 0.8],projection = proj)
+        else:
+            fig = plt.figure(figsize=(10, 4.0))
+            ax = fig.add_axes([0.07, 0.1, 0.3, 0.8],projection = proj)
         #Prepare data and projection for mapping
         xx, yy = np.meshgrid(distribution_2D.xbins, distribution_2D.ybins)
-        #bins_coord = trans.transform_points(proj, xx, yy)
-
-        #binslat, binslon = convert_from_grid(xx, yy)
 
         distribution_2D.H[distribution_2D.H==0.0] = np.nan
         H = distribution_2D.H*100.0 /distribution_2D.ntime
         H = H.T
 
-        #get the bins into the map projection
-        #new_coords = ax.projection.transform_points(trans, bins_coord[:,:,0], bins_coord[:,:,1])
-
         #print the frequency map
         cmap1 = mpl.colormaps['plasma']
         cmap1.set_bad('w')
         im = ax.pcolormesh(xx, yy, H, vmin = 0.0, vmax = 100.0,cmap=cmap1)
-        clb = plt.colorbar(im)
-        clb.set_label('% of total period tile has data')
-        clb.set_ticks(np.arange(0, 110, 10))
-        clb.set_ticklabels(np.arange(0, 110, 10))
         ax.gridlines()
         ax.add_feature(cfeature.LAND, zorder=100, edgecolor='k')
+        plt.text(0.5,1.1,'S1 + RCM',ha='center', va='center', transform=ax.transAxes,fontsize=12)
+        plt.text(0.08,0.9,'a)',ha='center', va='center', transform=ax.transAxes,fontsize=12)
+
+
+
+        if distribution_2D_2 is not None:
+            ax2 = fig.add_axes([0.4, 0.1, 0.3, 0.8],projection = proj)
+            #Prepare data and projection for mapping
+            xx, yy = np.meshgrid(distribution_2D_2.xbins, distribution_2D_2.ybins)
+
+            distribution_2D_2.H[distribution_2D_2.H==0.0] = np.nan
+            H = distribution_2D_2.H*100.0 /distribution_2D_2.ntime
+            H = H.T
+
+            #print the frequency map
+            cmap1 = mpl.colormaps['plasma']
+            cmap1.set_bad('w')
+            im2 = ax2.pcolormesh(xx, yy, H, vmin = 0.0, vmax = 100.0,cmap=cmap1)
+            plt.text(1.12,1.02,'Freq.(%)',ha='center', va='center', transform=ax2.transAxes,fontsize=8)
+            ax2.gridlines()
+            ax2.add_feature(cfeature.LAND, zorder=100, edgecolor='k')
+            plt.text(0.5,1.1,'S1 only',ha='center', va='center', transform=ax2.transAxes,fontsize=12)
+            plt.text(0.08,0.9,'b)',ha='center', va='center', transform=ax2.transAxes,fontsize=12)
+
+            cb_ax = fig.add_axes([0.3,0.05,0.4,0.04])
+            clb = plt.colorbar(im2, orientation='vertical',cax=cb_ax)
+            clb.set_ticks(np.arange(0, 110, 10))
+            clb.set_ticklabels(np.arange(0, 110, 10))
+            clb.ax.tick_params(labelsize=8)
+
+
+        if distribution_2D_3 is not None:
+            ax3 = fig.add_axes([0.73, 0.1, 0.3, 0.8],projection = proj)
+            #Prepare data and projection for mapping
+            xx, yy = np.meshgrid(distribution_2D_3.xbins, distribution_2D_3.ybins)
+
+            distribution_2D_3.H[distribution_2D_3.H==0.0] = np.nan
+            H = distribution_2D_3.H*100.0 /distribution_2D_3.ntime
+            H = H.T
+
+            #print the frequency map
+            cmap1 = mpl.colormaps['plasma']
+            cmap1.set_bad('w')
+            im3 = ax3.pcolormesh(xx, yy, H, vmin = 0.0, vmax = 100.0,cmap=cmap1)
+#            clb = plt.colorbar(im3, shrink = 0.9,pad=.04)
+#            clb.set_ticks(np.arange(0, 110, 10))
+#            clb.set_ticklabels(np.arange(0, 110, 10))
+#            clb.ax.tick_params(labelsize=8)
+#            plt.text(1.12,1.02,'Freq.(%)',ha='center', va='center', transform=ax3.transAxes,fontsize=8)
+            ax3.gridlines()
+            ax3.add_feature(cfeature.LAND, zorder=100, edgecolor='k')
+            plt.text(0.5,1.1,'RCM only',ha='center', va='center', transform=ax3.transAxes,fontsize=12)
+            plt.text(0.08,0.9,'c)',ha='center', va='center', transform=ax3.transAxes,fontsize=12)
 
 
         #Save figure in output folder
@@ -794,5 +893,268 @@ class visualisation:
         print('Saving coverage time series at ' + fig_path)
         fig.savefig(fig_path, dpi=600)
         plt.close(fig)
+
+        return
+
+
+
+    def plot_error_dist(self, dist1 = None, dist2 = None, dist3 = None, datestring = None):
+
+        """
+        This function produces a figure showing distributions of
+        SIDRR data, as defined by the input 1Ddistribution objects.
+
+        Input: - dist1,2,3      :: Analysis objects data include the histograms to be printed.
+                                   The object class is defined in Statistics_objects.py
+               - datestring     :: string indicating the start and end dates of the
+                                   analysis.
+        """
+        centroids = dist1.bins #(dist1.bins[1:] + dist1.bins[:-1]) / 2
+
+        # figure initialization
+        fig = plt.figure(figsize=(6.5, 5.5))
+        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
+        if dist2 is None and dist3 is None:
+            plt1 = plt.hist(centroids,bins = len(dist1.distribution),weights = dist1.distribution/np.nansum(dist1.distribution),
+                            range = ( min(dist1.bins), max(dist1.bins)), color = 'b')
+        else:
+            plt1 = plt.hist(centroids,bins = len(dist1.distribution),weights = dist1.distribution/np.nansum(dist1.distribution),
+                            range = ( min(dist1.bins), max(dist1.bins)), alpha = 0.5, color = 'b')
+        if dist2 is not None:
+            plt2 = plt.hist(centroids,bins = len(dist2.distribution),weights = dist2.distribution/np.nansum(dist2.distribution),
+                            range = ( min(dist2.bins), max(dist2.bins)), alpha = 0.5, color = 'b')
+        if dist3 is not None:
+            plt3 = plt.hist(centroids,bins = len(dist3.distribution),weights = dist3.distribution/np.nansum(dist3.distribution),
+                            range = ( min(dist3.bins), max(dist3.bins)), alpha = 0.5, color = 'b')
+
+        if dist3 is not None:
+            plt.legend((dist1.label,dist2.label,dist3.label))
+        elif dist2 is not None:
+            plt.legend((dist1.label,dist2.label))
+
+        dens = True
+        if dens:
+            plt.ylabel('PDF')
+        else :
+            plt.ylabel('Number of triangles')
+        plt.xlabel('propagation error')
+        plt.xlim(0,0.6)
+        #plt.xticks(range(0,10)/100)
+
+        # Make figure path name and save
+        if datestring is None:
+            prefix = "undefined_date"
+        else:
+            prefix = datestring
+        fig_path = self.figsPath + prefix + '_errors_hist.png'
+        print("saving propagation histogram at %s" % fig_path)
+        fig.savefig(fig_path, bbox_inches='tight', dpi=600)
+        plt.close(fig)
+
+        return
+
+
+    def plot_s2n_dist(self, dist1 = None, dist2 = None, dist3 = None, datestring = None):
+
+        """
+        This function produces a figure showing distributions of
+        SIDRR data, as defined by the input 1Ddistribution objects.
+
+        Input: - dist1,2,3      :: Analysis objects data include the histograms to be printed.
+                                   The object class is defined in Statistics_objects.py
+               - datestring     :: string indicating the start and end dates of the
+                                   analysis.
+        """
+
+        centroids = dist1.bins #(dist1.bins[1:] + dist1.bins[:-1]) / 2
+
+        # figure initialization
+        fig = plt.figure(figsize=(6.5, 5.5))
+        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
+        if dist2 is None and dist3 is None:
+            plt1 = plt.hist(centroids,bins = len(dist1.distribution),weights = dist1.distribution/np.nansum(dist1.distribution),
+                            range = ( min(dist1.bins), max(dist1.bins)), color = 'b')
+        else:
+            plt1 = plt.hist(centroids,bins = len(dist1.distribution),weights = dist1.distribution/np.nansum(dist1.distribution),
+                            range = ( min(dist1.bins), max(dist1.bins)), alpha = 0.5, color = 'b')
+        if dist2 is not None:
+            plt2 = plt.hist(centroids,bins = len(dist2.distribution),weights = dist2.distribution/np.nansum(dist2.distribution),
+                            range = ( min(dist2.bins), max(dist2.bins)), alpha = 0.5, color = 'b')
+        if dist3 is not None:
+            plt3 = plt.hist(centroids,bins = len(dist3.distribution),weights = dist3.distribution/np.nansum(dist3.distribution),
+                            range = ( min(dist3.bins), max(dist3.bins)), alpha = 0.5, color = 'b')
+
+        if dist3 is not None:
+            plt.legend((dist1.label,dist2.label,dist3.label))
+
+        dens = True
+        if dens:
+            plt.ylabel('PDF')
+        else :
+            plt.ylabel('Number of triangles')
+        plt.xlabel('signal-to-noise ratio')
+        plt.xlim(0,3)
+
+        # Make figure path name and save
+        if datestring is None:
+            prefix = "undefined_date"
+        else:
+            prefix = datestring
+        fig_path = self.figsPath + prefix + '_s2n_hist.png'
+        fig.savefig(fig_path, bbox_inches='tight', dpi=600)
+        plt.close(fig)
+
+        return
+
+
+
+    def plot_errors(self, data=None, datestring=None):
+        """
+        This function plots the deformation errors from a netCDF file using matplotlib's ax.tripcolor.
+        The function assumes that the netCDF was generated from src/SeaIceDeformation's M01_d03_compute_deformations.py.
+
+        INPUTS: - data        :: SIDRR data object (From LoadDataset.py)
+                - datestring  :: string indicating the start and end dates of the
+                                 analysis.
+
+        OUTPUTS:
+        None -- Saves plot to the output directory
+        """
+
+        # Set the matplotlib projection and transform
+        proj = ccrs.NorthPolarStereo(central_longitude=0)
+        trans = ccrs.Geodetic()
+
+        # Initialize figures for total deformation (tot), divergence (I) and shear (II)
+        fig_errs = plt.figure(figsize=(5, 9))
+
+        # Initialize subplots
+        ax_div = fig_errs.add_axes([0.1, 0.62, 0.8, 0.25], projection=proj)
+        ax_shr = fig_errs.add_axes([0.1, 0.34, 0.8, 0.25], projection=proj)
+        ax_vrt = fig_errs.add_axes([0.1, 0.06, 0.8, 0.25], projection=proj)
+
+        # Create a list of axes to be iterated over
+        ax_list = [ax_div, ax_shr, ax_vrt]
+        for ax in ax_list:
+            ax.set_extent((-3800000, 2300000, 3000000, -2500000), ccrs.NorthPolarStereo())
+
+
+        #---------------------------------
+        # Get data for specfic SAR image pair and prepare for tripcolor
+        #---------------------------------
+
+        print('--- Creating sea-ice error figures ---')
+        data.errII[data.errII>1000.0] = np.nan
+        # Looping over SAR image pairs (each image pair IDs from each daily netcdf)
+        for j in tqdm(np.unique(data.day_flag)):
+          no_day = data.idpair[np.where(data.day_flag==j)]
+          for i in tqdm(np.unique(no_day)):
+
+            # Get the first and last row of data corresponding to the specific pair of SAR images
+            condi = (data.idpair[:] == i) & (data.day_flag[:] == j)
+            min_index = np.where(condi)[0][0]
+            max_index = np.where(condi)[0][-1]+1
+
+            # Get vertex ids from specific pair, and stack into triangle array, for tripcolor
+            triangles = np.stack((data.ids1[min_index:max_index],
+                                  data.ids2[min_index:max_index],
+                                  data.ids3[min_index:max_index]), axis=-1)
+
+            #Reconstruct the position vectors used for triangulation
+            LatVector, LonVector = data.reconstruct_position_lists(min_index = min_index, max_index = max_index)
+
+            div_colours = data.errI[min_index:max_index]
+            shr_colours = data.errII[min_index:max_index]
+            vrt_colours = data.s2n[min_index:max_index]
+            # tranform the coordinates already to improve the plot efficiency
+            new_coords = proj.transform_points(trans, np.array(LonVector), np.array(LatVector))
+            tria = tri.Triangulation(new_coords[:,0], new_coords[:,1], triangles=triangles)
+
+            #--------------------------------------------
+            # Add tripcolor to figure
+            #--------------------------------------------
+            if len(triangles) != 0:
+                cb_div = ax_div.tripcolor(tria, facecolors=div_colours, cmap='plasma',vmin=0.0, vmax=0.4)
+                cb_shr = ax_shr.tripcolor(tria, facecolors=shr_colours, cmap='plasma',vmin=0.0, vmax=0.4)
+                cb_vrt = ax_vrt.tripcolor(tria, facecolors=vrt_colours, cmap='plasma',vmin=0.0, vmax=5.0)
+
+        #--------------------------------------------
+        # Labeling and saving
+        #--------------------------------------------
+        # Create a list of colorbars and titles to be iterated over
+        cb_list = [cb_div, cb_shr, cb_vrt]
+
+        #List of titles and labels
+        eI_title ="$e_{I}$ (day$^{-1}$)"
+        eII_title = "$e_{II}$ (day$^{-1}$)"
+        zeta_title = "signal to noise"
+        title_list = [eI_title, eII_title,zeta_title]
+        lbl_list = ["a)","b)","c)"]
+
+        for ax, title, cb, lbl in zip(ax_list, title_list, cb_list, lbl_list):
+
+            # Add a colorbar
+            clb = plt.colorbar(cb, ax = ax, shrink = 0.9,pad=.04)
+            clb.ax.tick_params(labelsize=8)
+
+            # Add colorbar label
+            plt.text(1.12,1.02,title,ha='center', va='center', transform=ax.transAxes,fontsize=8)
+
+            #Panel label
+            plt.text(-0.1,0.95,lbl,ha='center', va='center', transform=ax.transAxes,fontsize=12)
+
+            #Grid and landmask
+            ax.gridlines()
+            ax.add_feature(cfeature.LAND, zorder=100, edgecolor='k')
+
+        # Create the figure filenames
+        if datestring is None:
+            prefix = "undefined_date"
+        else:
+            prefix = datestring
+
+        errs_path  = self.figsPath + prefix + '_errs.png'
+        print("Printing error figure at : %s" % errs_path)
+        fig_errs.savefig(errs_path, bbox_inches='tight', dpi=600)
+        plt.close(fig_errs)
+
+
+        fig_scatter = plt.figure(figsize=(6,5))
+
+        # Initialize subplots
+        ax = fig_scatter.add_axes([0.1, 0.6, 0.36, 0.36])
+        ax2 = fig_scatter.add_axes([0.1, 0.1, 0.36, 0.36])
+
+        print('--- Creating sea-ice deformation figures ---')
+
+        # Looping over SAR image pairs (each image pair IDs from each daily netcdf)
+        for j in tqdm(np.unique(data.day_flag)):
+            no_day = data.idpair[np.where(data.day_flag==j)]
+            for i in tqdm(np.unique(no_day)):
+
+                # Get the first and last row of data corresponding to the specific pair of SAR images
+                condi = (data.idpair[:] == i) & (data.day_flag[:] == j)
+                min_index = np.where(condi)[0][0]
+                max_index = np.where(condi)[0][-1]+1
+                data.errII[data.errII>1000.0] = np.nan
+                ax.scatter(data.div[min_index:max_index],
+                           data.errI[min_index:max_index],
+                           c=data.s2n[min_index:max_index],
+                           cmap='plasma', vmin=0.0, vmax=5.0)
+                ax.set_xlim(0.0,2.0)
+                ax.set_ylim(0.0,2.0)
+                ax2.scatter(data.shr[min_index:max_index],
+                           data.errII[min_index:max_index],
+                           c=data.s2n[min_index:max_index],
+                           cmap='plasma', vmin=0.0, vmax=5.0)
+                ax2.set_xlim(0.0,2.0)
+                ax2.set_ylim(0.0,2.0)
+
+
+        scatter_path  = self.figsPath + prefix + '_err_scatter.png'
+        print("Printing error figure at : %s" % scatter_path)
+        fig_scatter.savefig(scatter_path, bbox_inches='tight', dpi=600)
+        plt.close(fig_scatter)
+
 
         return

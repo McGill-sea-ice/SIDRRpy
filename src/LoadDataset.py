@@ -89,10 +89,10 @@ class SID_dataset:
         self.end_lon3 = (ds.variables['end_lon3'][:])[:]
 
         #Extracting SAR image and triangle vertex IDs
-        self.idx1 = (ds.variables['idx1'][:])[:]
-        self.idx2 = (ds.variables['idx2'][:])[:]
-        self.idx3 = (ds.variables['idx3'][:])[:]
-        self.no   = (ds.variables['no'][:])[:]
+        self.ids1 = (ds.variables['ids1'][:])[:]
+        self.ids2 = (ds.variables['ids2'][:])[:]
+        self.ids3 = (ds.variables['ids3'][:])[:]
+        self.idpair   = (ds.variables['idpair'][:])[:]
 
         #Extracting deformation data
         self.A = (ds.variables['A'][:])[:]
@@ -105,6 +105,10 @@ class SID_dataset:
         self.dvdy = (ds.variables['dvdy'][:])[:]
 
         #Extracting uncertainty data
+        self.errI = (ds.variables['err_div'][:])[:]**0.5
+        self.errII = (ds.variables['err_shr'][:])[:]**0.5
+        self.errvrt = (ds.variables['err_vrt'][:])[:]**0.5
+        self.s2n = (ds.variables['s2n'][:])[:]
 
         #closing the dataset
         ds.close()
@@ -114,7 +118,7 @@ class SID_dataset:
         self.Mask[:] = 1
 
         #Create an object to track the start date
-        self.day_flag = self.no.copy()
+        self.day_flag = self.idpair.copy()
         self.day_flag[:]= 1
 
         #Filter out data with too large Area (> 20km^2)
@@ -148,14 +152,18 @@ class SID_dataset:
         self.div = self.div[indices]
         self.shr = self.shr[indices]
         self.vrt = self.vrt[indices]
-        self.idx1 = self.idx1[indices]
-        self.idx2 = self.idx2[indices]
-        self.idx3 = self.idx3[indices]
-        self.no   = self.no[indices]
+        self.ids1 = self.ids1[indices]
+        self.ids2 = self.ids2[indices]
+        self.ids3 = self.ids3[indices]
+        self.idpair   = self.idpair[indices]
         self.dudx = self.dudx[indices]
         self.dudy = self.dudy[indices]
         self.dvdx = self.dvdx[indices]
         self.dvdy = self.dvdy[indices]
+        self.errI = self.errI[indices]
+        self.errII = self.errII[indices]
+        self.errvrt = self.errvrt[indices]
+        self.s2n   = self.s2n[indices]
         self.Mask = self.Mask[indices]
         self.day_flag = self.day_flag[indices]
 
@@ -206,10 +214,10 @@ class SID_dataset:
         self.end_lon2 = np.append(self.end_lon2,Data2.end_lon2)
         self.end_lon3 = np.append(self.end_lon3,Data2.end_lon3)
 
-        self.idx1 = np.append(self.idx1,Data2.idx1)
-        self.idx2 = np.append(self.idx2,Data2.idx2)
-        self.idx3 = np.append(self.idx3,Data2.idx3)
-        self.no = np.append(self.no,Data2.no)
+        self.ids1 = np.append(self.ids1,Data2.ids1)
+        self.ids2 = np.append(self.ids2,Data2.ids2)
+        self.ids3 = np.append(self.ids3,Data2.ids3)
+        self.idpair = np.append(self.idpair,Data2.idpair)
         self.day_flag = np.append(self.day_flag,Data2.day_flag)
 
         self.A = np.append(self.A,Data2.A)
@@ -220,6 +228,11 @@ class SID_dataset:
         self.dudy = np.append(self.dudy,Data2.dudy)
         self.dvdx = np.append(self.dvdx,Data2.dvdx)
         self.dvdy = np.append(self.dvdy,Data2.dvdy)
+
+        self.errI = np.append(self.errI,Data2.errI)
+        self.errII = np.append(self.errII,Data2.errII)
+        self.errvrt = np.append(self.errvrt,Data2.errvrt)
+        self.s2n = np.append(self.s2n,Data2.s2n)
 
         self.Mask = np.append(self.Mask,Data2.Mask)
 
@@ -265,12 +278,12 @@ class SID_dataset:
                                  self.end_lon2[min_index:max_index],
                                  self.end_lon3[min_index:max_index])
 
-        (idx1,idx2,idx3) = (self.idx1[min_index:max_index],
-                                 self.idx2[min_index:max_index],
-                                 self.idx3[min_index:max_index])
+        (ids1,ids2,ids3) = (self.ids1[min_index:max_index],
+                                 self.ids2[min_index:max_index],
+                                 self.ids3[min_index:max_index])
 
         # Combined list of start IDs
-        start_ids = np.hstack((idx1, idx2, idx3))
+        start_ids = np.hstack((ids1, ids2, ids3))
 
         # Skipping blank data files
         if len(start_ids) == 0:
@@ -281,25 +294,25 @@ class SID_dataset:
 
         if EndPoint is True:
             for i in range(len(start_lat1_temp)):
-                LatVector[idx1[i]] = end_lat1_temp[i]
-                LatVector[idx2[i]] = end_lat2_temp[i]
-                LatVector[idx3[i]] = end_lat3_temp[i]
+                LatVector[ids1[i]] = end_lat1_temp[i]
+                LatVector[ids2[i]] = end_lat2_temp[i]
+                LatVector[ids3[i]] = end_lat3_temp[i]
 
             for i in range(len(start_lon1_temp)):
-                LonVector[idx1[i]] = end_lon1_temp[i]
-                LonVector[idx2[i]] = end_lon2_temp[i]
-                LonVector[idx3[i]] = end_lon3_temp[i]
+                LonVector[ids1[i]] = end_lon1_temp[i]
+                LonVector[ids2[i]] = end_lon2_temp[i]
+                LonVector[ids3[i]] = end_lon3_temp[i]
 
         else:
 
             for i in range(len(start_lat1_temp)):
-                LatVector[idx1[i]] = start_lat1_temp[i]
-                LatVector[idx2[i]] = start_lat2_temp[i]
-                LatVector[idx3[i]] = start_lat3_temp[i]
+                LatVector[ids1[i]] = start_lat1_temp[i]
+                LatVector[ids2[i]] = start_lat2_temp[i]
+                LatVector[ids3[i]] = start_lat3_temp[i]
 
             for i in range(len(start_lon1_temp)):
-                LonVector[idx1[i]] = start_lon1_temp[i]
-                LonVector[idx2[i]] = start_lon2_temp[i]
-                LonVector[idx3[i]] = start_lon3_temp[i]
+                LonVector[ids1[i]] = start_lon1_temp[i]
+                LonVector[ids2[i]] = start_lon2_temp[i]
+                LonVector[ids3[i]] = start_lon3_temp[i]
 
         return LatVector, LonVector
