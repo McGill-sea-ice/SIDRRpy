@@ -39,7 +39,7 @@ from visualisation import visualisation
 from LoadDataset   import SID_dataset
 from TimeUtil import TimeUtil
 from Statistics_objects import Coverage_map, Data_Distribution
-
+from haversine import haversine
 
 if __name__ == '__main__':
 
@@ -90,7 +90,10 @@ if __name__ == '__main__':
         filePath = path + ThisTimeFile
 
         #Load netcdf data
-        Data = SID_dataset(FileName= filePath, config=config)
+        try:
+            Data = SID_dataset(FileName= filePath, config=config)
+        except:
+            continue
         indices = [i for i in range(len(Data.A)) if  Data.end_time[i] > -ref ]
 
         #Filter to keep data that are valid for the aim date
@@ -120,24 +123,28 @@ if __name__ == '__main__':
     #Initialize statistics objects
     if config['visualize']['show_spatial_coverage'] == 'True':
         print("Yep, this is working, not preparing the FreqMap objects")
-        FreqMap = Coverage_map(label = 'all')
+        FreqMap = Coverage_map(label = 'combined')
         FreqMap_S1 = Coverage_map(label = 'S1')
         FreqMap_RCM = Coverage_map(label = 'RCM')
 
     #Initialise 1d histograms for the triangle areas.
     if config['visualize']['show_spatial_scale_dist'] == 'True':
         #Spatial scale distributions
-        A_dist_all = Data_Distribution(LeftBC= 0.0, RightBC = 20.0, nbins = 60, label = "all")
-        A_dist_S1  = Data_Distribution(LeftBC= 0.0, RightBC = 20.0, nbins = 60, label = "S1")
-        A_dist_RCM = Data_Distribution(LeftBC= 0.0, RightBC = 20.0, nbins = 60, label = "RCM")
+        A_dist_all = Data_Distribution(LeftBC= 0.0, RightBC = 20.0, nbins = 40, label = "combined")
+        A_dist_S1  = Data_Distribution(LeftBC= 0.0, RightBC = 20.0, nbins = 40, label = "S1")
+        A_dist_RCM = Data_Distribution(LeftBC= 0.0, RightBC = 20.0, nbins = 40, label = "RCM")
         #Temporal scale distributions
-        T_dist_all = Data_Distribution(LeftBC= 6.0, RightBC = 150.0, nbins = 12, label = "all")
+        T_dist_all = Data_Distribution(LeftBC= 6.0, RightBC = 150.0, nbins = 12, label = "combined")
         T_dist_S1  = Data_Distribution(LeftBC= 6.0, RightBC = 150.0, nbins = 12, label = "S1")
         T_dist_RCM = Data_Distribution(LeftBC= 6.0, RightBC = 150.0, nbins = 12, label = "RCM")
         #Error distributions
-        errI_dist  = Data_Distribution(LeftBC= 0.0, RightBC = 1.0, nbins = 100, label = "eI")
-        errII_dist = Data_Distribution(LeftBC= 0.0, RightBC = 1.0, nbins = 100, label = "eII")
-        s2n_dist   = Data_Distribution(LeftBC= 0.0, RightBC = 5.0, nbins = 80, label = "signal-to-noise")
+        errtot_dist_all  = Data_Distribution(LeftBC= 0.0, RightBC = 1.0, nbins = 100, label = "combined")
+        errtot_dist_S1   = Data_Distribution(LeftBC= 0.0, RightBC = 1.0, nbins = 100, label = "S1")
+        errtot_dist_RCM  = Data_Distribution(LeftBC= 0.0, RightBC = 1.0, nbins = 100, label = "RCM")
+        #Signal-to-noise distributions
+        s2n_dist_all     = Data_Distribution(LeftBC= 0.0, RightBC = 5.0, nbins = 50, label = "combined")
+        s2n_dist_S1      = Data_Distribution(LeftBC= 0.0, RightBC = 5.0, nbins = 50, label = "S1")
+        s2n_dist_RCM     = Data_Distribution(LeftBC= 0.0, RightBC = 5.0, nbins = 50, label = "RCM")
 
 
 
@@ -165,7 +172,9 @@ if __name__ == '__main__':
         Data = SID_dataset(FileName= filePath, config=config)
         Data.start_time = Data.start_time + Head_start
         Data.end_time = Data.end_time + Head_start
-        Data.Concatenate_data(Data2 = Data_Mem)
+
+        if Data_Mem is not None:
+            Data.Concatenate_data(Data2 = Data_Mem)
 
         #Use to limit the analysis to specific months. Otherwise, ignore.
         if Period == 'all' or TimeTool.ThisTime.month == int(Period):
@@ -177,6 +186,16 @@ if __name__ == '__main__':
                 FreqMap_RCM.add2hist_2D(Data = Data, Satellite = int(0), Time = TimeTool)
 
             if config['visualize']['show_spatial_scale_dist'] == 'True':
+
+#                #Reinitializing the Error distributions
+#                errtot_dist_all  = Data_Distribution(LeftBC= 0.0, RightBC = 1.0, nbins = 100, label = "combined")
+#                errtot_dist_S1   = Data_Distribution(LeftBC= 0.0, RightBC = 1.0, nbins = 100, label = "S1")
+#                errtot_dist_RCM  = Data_Distribution(LeftBC= 0.0, RightBC = 1.0, nbins = 100, label = "RCM")
+#                #Reinitializing the Signal-to-noise distributions
+#                s2n_dist_all     = Data_Distribution(LeftBC= 0.0, RightBC = 5.0, nbins = 50, label = "combined")
+#                s2n_dist_S1      = Data_Distribution(LeftBC= 0.0, RightBC = 5.0, nbins = 50, label = "S1")
+#                s2n_dist_RCM     = Data_Distribution(LeftBC= 0.0, RightBC = 5.0, nbins = 50, label = "RCM")
+
                 #Spatial distribution
                 A_dist_all.add2hist_1D(Data = (Data.A[:]**0.5)/1000.0)
                 A_dist_S1.add2hist_1D(Data = (Data.A[Data.satellite[:]==1]**0.5)/1000.0)
@@ -185,10 +204,19 @@ if __name__ == '__main__':
                 T_dist_all.add2hist_1D(Data = (Data.end_time-Data.start_time)/3600.0)
                 T_dist_S1.add2hist_1D(Data = (Data.end_time[Data.satellite[:]==1]- Data.start_time[Data.satellite[:]==1])/3600.0 )
                 T_dist_RCM.add2hist_1D(Data = (Data.end_time[Data.satellite[:]==0] - Data.start_time[Data.satellite[:]==0])/3600.0)
+
                 #Error distribution
-                errI_dist.add2hist_1D(Data = Data.errI[:])
-                errII_dist.add2hist_1D(Data = Data.errII[:])
-                s2n_dist.add2hist_1D(Data = Data.s2n[:])
+                errtot_dist_all.add2hist_1D(Data = Data.errtot[Data.errtot[:]>0.0])
+                errtot_dist_S1.add2hist_1D( Data = Data.errtot[np.logical_and(Data.satellite==1 , Data.errtot>0.0)])
+                errtot_dist_RCM.add2hist_1D(Data = Data.errtot[np.logical_and(Data.satellite==0 , Data.errtot>0.0)])
+                s2n_dist_all.add2hist_1D(Data = Data.s2n[Data.s2n[:]>0.0])
+                s2n_dist_S1.add2hist_1D( Data = Data.s2n[np.logical_and(Data.satellite==1, Data.s2n>0.0)])
+                s2n_dist_RCM.add2hist_1D(Data = Data.s2n[np.logical_and(Data.satellite==0, Data.s2n>0.0)])
+
+
+#                visuals.plot_error_dist(dist1 = errtot_dist_S1, dist2 = errtot_dist_RCM, dist3 = errtot_dist_all,
+#                               dist_s1 = s2n_dist_S1, dist_s2 = s2n_dist_RCM, dist_s3 = s2n_dist_all, data = Data,
+#                               datestring = ThisTime_str)
 
             #------------------------------------------------------------------
             # Visualise data from specific date
@@ -204,7 +232,9 @@ if __name__ == '__main__':
 
             #Figure showing the triangulated data of specified SAR image pair ID.
             if config['visualize']['plot_triangulated_data'] == 'True':
-                visuals.plot_triangles(data=Data, idpair = int(2), triangle_zoom = True, datestring = ThisTime_str)
+                visuals.plot_triangles(data=Data, idpair = int(40), triangle_zoom = True, datestring = ThisTime_str)
+                visuals.plot_triangles(data=Data, idpair = int(41), triangle_zoom = True, datestring = ThisTime_str)
+                visuals.plot_triangles(data=Data, idpair = int(23), triangle_zoom = True, datestring = ThisTime_str)
 
             #Figure showing normal, shear and rotation rates.
             if config['visualize']['plot_deformation'] == 'True':
@@ -243,11 +273,13 @@ if __name__ == '__main__':
 
     # Make figure showing the distribution of data spatial scales
     if config['visualize']['show_spatial_scale_dist'] == 'True':
-        visuals.plot_area_dist(dist1 = A_dist_S1,dist2 = A_dist_RCM, distDt1 = T_dist_S1, distDt2 = T_dist_RCM,
+        visuals.plot_area_dist(dist1 = A_dist_S1,   dist2 = A_dist_RCM,dist3 = A_dist_all,
+                               distDt1 = T_dist_S1, distDt2 = T_dist_RCM,distDt3 = T_dist_all,
                                datestring = TimeTool.StartDate_str + '_' + TimeTool.EndDate_str)
-        visuals.plot_error_dist(dist1 = errI_dist, dist2 = errII_dist,
+        visuals.plot_error_dist(dist1 = errtot_dist_S1, dist2 = errtot_dist_RCM, dist3 = errtot_dist_all,
+                               dist_s1 = s2n_dist_S1, dist_s2 = s2n_dist_RCM, dist_s3 = s2n_dist_all, data = Data_Mem,
                                datestring = TimeTool.StartDate_str + '_' + TimeTool.EndDate_str)
-        visuals.plot_s2n_dist(dist1 = s2n_dist,
+        visuals.plot_s2n_dist(dist1 = s2n_dist_all,
                                datestring = TimeTool.StartDate_str + '_' + TimeTool.EndDate_str)
 
     if config['visualize']['show_coverage_tseries'] == 'True':

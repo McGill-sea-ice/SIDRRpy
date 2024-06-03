@@ -110,6 +110,8 @@ class SID_dataset:
         self.errvrt = (ds.variables['err_vrt'][:])[:]**0.5
         self.s2n = (ds.variables['s2n'][:])[:]
 
+        self.errtot = ((self.div*self.errI)**2.0 + (self.shr*self.errII)**2.0 / (self.div**2.0 + self.shr**2.0))**0.5
+
         #closing the dataset
         ds.close()
 
@@ -163,6 +165,7 @@ class SID_dataset:
         self.errI = self.errI[indices]
         self.errII = self.errII[indices]
         self.errvrt = self.errvrt[indices]
+        self.errtot = self.errtot[indices]
         self.s2n   = self.s2n[indices]
         self.Mask = self.Mask[indices]
         self.day_flag = self.day_flag[indices]
@@ -232,6 +235,7 @@ class SID_dataset:
         self.errI = np.append(self.errI,Data2.errI)
         self.errII = np.append(self.errII,Data2.errII)
         self.errvrt = np.append(self.errvrt,Data2.errvrt)
+        self.errtot = np.append(self.errtot,Data2.errtot)
         self.s2n = np.append(self.s2n,Data2.s2n)
 
         self.Mask = np.append(self.Mask,Data2.Mask)

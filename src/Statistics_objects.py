@@ -133,7 +133,7 @@ class Coverage_map:
         # Adding interval-specific histogram to total histogram
         H[H > 0.0] = 1.0
 
-        self.covered_area = (np.nansum(H)*(int(self.resolution)**2))
+        self.covered_area = (np.nansum(H)*(int(self.resolution)**2))*1e-12
         self.H = self.H.copy() + H
 
 
