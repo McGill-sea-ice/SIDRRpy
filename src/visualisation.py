@@ -4,9 +4,10 @@ Visualisation tool to show dataset format and characterstics
 --------------------------------------------------------------------------------
 Includes:
 
-- plot_start_end_points :: Creates a figure mapping the start and end
-                           postion of the tracked features in a pair of
-                           SAR images.
+- plot_data_structure   :: Creates a figure showing the stacked track points, a zoom on data
+                           from a specific image pair (specified by user), and a zoom on the
+                           triangulated features.
+                           Fig. 1 in Plante et al., 2024 for February 12th 2021, idpair = 23.
 
 - show_tripcolor_field  :: Creates a figure showing the stacked tripcolor of a specific field,
                            from the SIDRR dataset (i.e., triangle Area, dudx, rotation,
@@ -15,9 +16,7 @@ Includes:
 - show_deformations     :: Creates a figure showing the normal deformation rates (a), the
                            shear deformation rates (b) and the vorticity (c), deemded valid
                            for a specific date (data from multiple SAR image pairs are stacked).
-
-- show_stacked_pairs    :: Creates a figure showing the area contour of each of the SAR image
-                           pairs included in a given SIDRR netcdf file.
+                           Fig. 2 in Plante et al., 2024 (for February 12th, 2021)
 
 - plot_triangles        :: Creates 2 figures zooming on the data calculated from a specific
                            SAR image pair, with the normal deformation rate in the background.
@@ -73,17 +72,8 @@ class visualisation:
         os.makedirs(self.figsPath, exist_ok=True)
 
 
-    def plot_start_end_points(self, data = None, datestring=None):
+    def plot_data_structure(self, data = None, datestring=None,  idpair = None):
         """
-        Plots the start and end points of the triangle vertices on a map.
-        Start points are blue, end points are red.
-
-        INPUTS:
-        data          :: data object from the SIDRR dataset (LoadDataset.py)
-        datestring    :: string indicating date of 1st image acquisition time
-
-        OUTPUTS:---
-
         """
         print('--- Plotting start and end points ---')
 
@@ -92,59 +82,240 @@ class visualisation:
         trans = ccrs.Geodetic()
 
         # Initialize figure
-        fig = plt.figure(figsize=(5.5, 5.5))
-        ax = fig.add_subplot(projection = proj, frameon=False)
+        fig_pairs = plt.figure(figsize=(9, 5))
+        ax_pairs = fig_pairs.add_axes([0.01, 0.15, 0.35, 0.8], projection=proj)
+        ax_pairs.set_extent((-4400000, 2500000, 3500000, -2500000), ccrs.NorthPolarStereo())
 
-        lxextent = -4400000
-        uxextent = 2500000
-        uyextent = 3500000
-        lyextent = -2500000
-        ax.set_extent((lxextent, uxextent, uyextent, lyextent), ccrs.NorthPolarStereo())
+        print('--- Creating figure showing SAR pair areas ---')
+
+
+
+        #============================================================
+        #
+        # Panel A: Showing the stacked SAR image pairs in the netcdf
+        #
+        #============================================================
 
         #---------------------------------
-        # Get tracked features position and add scatter to figure
+        # Get data for each pair and add its points and area to figure
         #---------------------------------
 
-        # Fetch a specific image pair
-        j = np.unique(data.day_flag)[0]
+        # Looping over SAR image pairs (each image pair IDs in the netcdf)
+        j  = np.unique(data.day_flag)[0] #Only the netcdf date (day flag show how long ago was the start time)
         no_day = data.idpair[np.where(data.day_flag==j)]
-        i = np.unique(no_day)[0]
+        for i in tqdm(np.unique(no_day)):
+            # Get the first and last row of data corresponding to the specific pair of SAR images
+            condi = (data.idpair[:] == i) & (data.day_flag[:] == j)
+            min_index = np.where(condi)[0][0]
+            max_index = np.where(condi)[0][-1]+1
+
+            # Get vertex ids from specific pair, and stack into triangle array, for tripcolor
+            triangles = np.stack((data.ids1[min_index:max_index],
+                                  data.ids2[min_index:max_index],
+                                  data.ids3[min_index:max_index]), axis=-1)
+
+            # Get the list of tracked position and add scatter in figure
+            LatVector, LonVector = data.reconstruct_position_lists(min_index = min_index, max_index = max_index)
+            points = proj.transform_points(trans, np.array(LonVector), np.array(LatVector))
+            ax_pairs.scatter(points[:,0], points[:,1], color = 'red', s = 0.1, marker='+')
+            points = points[:,:-1]
+            points = points[~np.isnan(points[:,0]),:]
+
+            # Make the hull around the points and add area contour line to figure
+            hull = ConvexHull(points)
+            for simplex in hull.simplices:
+                plt.plot(points[simplex, 0], points[simplex, 1], 'k-')
+
+            # Get center location for ID labeling, and write to figure.
+            x_mean = np.nanmean(np.squeeze(points[hull.simplices,0]))
+            y_mean = np.nanmean(np.squeeze(points[hull.simplices,1]))
+            ax_pairs.text(x_mean, y_mean,str(i),fontsize = 2,
+                          verticalalignment ='center',
+                                  horizontalalignment = 'center')
+
+        #--------------------------------------------
+        # Labeling and saving
+        #--------------------------------------------
+
+        # Add gridlines
+        ax_pairs.gridlines()
+        ax_pairs.add_feature(cfeature.LAND, zorder=100, edgecolor='k')
+        plt.text(0.05,0.95,'a)',ha='center', va='center', transform=ax_pairs.transAxes,fontsize=12)
+
+        #============================================================
+        #
+        # Panel B: Showing the triangles of specified SAR image pairs
+        #
+        #============================================================
+
+        ax_tris = fig_pairs.add_axes([0.37, 0.15, 0.237, 0.8], projection=proj)
+        ax_tris.set_extent((-4400000, 2500000, 3500000, -2500000), ccrs.NorthPolarStereo())
+        print('--- Creating figures zooming on SAR image pair ID = %s ---' % idpair)
+
+        #---------------------------------
+        # Get data from required SAR image pair
+        #---------------------------------
+
+        # Fetch the image pair data
+        j = np.unique(data.day_flag)[0] #only the netcdf date
+        no_day = data.idpair[np.where(data.day_flag==j)]
+        i = int(idpair)
 
         # Get the first and last row of data corresponding to the specific pair of SAR images
         condi = (data.idpair[:] == i) & (data.day_flag[:] == j)
         min_index = np.where(condi)[0][0]
         max_index = np.where(condi)[0][-1]+1
 
+        # Get vertex ids from specific pair, and stack into triangle array, for tripcolor
+        triangles = np.stack((data.ids1[min_index:max_index],
+                              data.ids2[min_index:max_index],
+                              data.ids3[min_index:max_index]), axis=-1)
+
         #Reconstruct the position vectors used for triangulation
         LatVector, LonVector = data.reconstruct_position_lists(min_index = min_index, max_index = max_index)
-        LatVectorEnd, LonVectorEnd = data.reconstruct_position_lists(min_index = min_index, max_index = max_index, EndPoint = True)
 
-        # Converting start/end lat/lons to x/y (North pole stereographic)
-        new_coords     = proj.transform_points(trans, np.array(LonVector), np.array(LatVector))
-        new_coords_end = proj.transform_points(trans, np.array(LonVector), np.array(LatVector))
+        #Keep only values from specific SAR pair
+        data_colours = data.div[min_index:max_index]
 
-        # Plotting start points (Blue) and end points (Red)
-        ax.scatter(new_coords[:,0], new_coords[:,1], color = 'blue', s = 0.1, marker='x')
-        ax.scatter(new_coords_end[:,0], new_coords_end[:,1], color = 'red', s = 0.1, marker='+')
+        # tranform the coordinates already to improve the plot efficiency
+        new_coords = proj.transform_points(trans, np.array(LonVector), np.array(LatVector))
+        tria = tri.Triangulation(new_coords[:,0], new_coords[:,1], triangles=triangles)
 
-        #--------------------------------------------
-        # Figure labeling and saving
-        #--------------------------------------------
 
-        # Show lat/lon grid and coastlines
-        ax.gridlines(draw_labels=True)
-        ax.add_feature(cfeature.LAND, zorder=100, edgecolor='k')
+        #---------------------------------
+        # Calculate new boundaries to zoom on figure
+        #---------------------------------
 
+        # Get 4 reference point for map extent, based on the tracked point positions
+        x,y = new_coords[:,0],new_coords[:,1]
+        a1 = np.nanmin(new_coords[:,0])
+        a2 = np.nanmax(new_coords[:,0])
+        a3 = np.nanmin(new_coords[:,1])
+        a4 = np.nanmax(new_coords[:,1])
+        a = len(x)
+
+        points = new_coords.copy()
+        points = points[:,:-1]
+        points = points[~np.isnan(points[:,0]),:]
+        try:
+            ax_tris.set_extent((a1, a2, a3, a4),proj)
+        except:
+            sys.exit("error in extent : %s, %s, %s, %s" % (a1, a2, a3, a4))
+
+        #---------------------------------
+        # Add pcolor and hull contour to figure
+        #---------------------------------
+
+        if len(triangles) != 0:
+
+            #Add tripcolor of the divergence rate calculated from the SAR image pair
+            cb_div = ax_tris.tripcolor(tria, facecolors=data_colours,cmap='coolwarm',
+                                       vmin=-0.04, vmax=0.04, edgecolors='k')
+
+            # Make the hull around the points and add area contour line to figure
+            hull = ConvexHull(points)
+            for simplex in hull.simplices:
+                plt.plot(points[simplex, 0], points[simplex, 1], 'k-')
+
+        plt.text(0.06,0.95,'b)',ha='center', va='center', transform=ax_tris.transAxes,fontsize=12)
+
+        #============================================================
+        #
+        # Panel C: Zooming on some tracked features
+        #
+        #============================================================
+
+
+
+        if (len(triangles) != 0):
+
+            # Initialize figure
+            ax_zoom = fig_pairs.add_axes([0.63, 0.15, 0.35, 0.8], projection=proj)
+
+            #---------------------------------
+            # Get additional motion vector data from SAR image pair
+            #---------------------------------
+
+            #Make ID and position vectors by concatenating the 3 vertex IDs and positions
+            IDs = np.concatenate((data.ids1[min_index:max_index], data.ids2[min_index:max_index],
+                                   data.ids3[min_index:max_index]), axis=0)
+
+            #Also get the end point coordinates
+            LatVectorEnd, LonVectorEnd = data.reconstruct_position_lists(min_index = min_index,
+                                                                         max_index = max_index,
+                                                                         EndPoint  = True)
+
+            new_coords_end = proj.transform_points(trans, np.array(LonVectorEnd), np.array(LatVectorEnd))
+            tria_end = tri.Triangulation(new_coords_end[:,0], new_coords_end[:,1], triangles=triangles)
+
+            #Get the drift of each point between the 2 images, in X-Y coords.
+            deltaXY = new_coords_end - new_coords
+
+            #---------------------------------
+            # Add pcolor and start/end positions to figure
+            #---------------------------------
+
+            #Show triangles with no fill color
+            cb_div_zoom = ax_zoom.tripcolor(tria, facecolors=data_colours*np.nan,cmap='coolwarm',
+                                                   vmin=-0.04, vmax=0.04, edgecolors='k')
+
+            #Scatter start and end positions
+            ax_zoom.scatter(new_coords[:,0], new_coords[:,1], color = 'k',
+                                 s = 5, marker='*',label = 'start points')
+            ax_zoom.scatter(new_coords_end[:,0], new_coords_end[:,1], color = 'b',
+                                 s = 5, marker='*',label = 'end points')
+
+            #Add vertex ID labels
+            for idk in tqdm(np.unique(IDs)):
+                IDxk = new_coords[idk,0]
+                IDyk = new_coords[idk,1]
+                IDstr = str(idk)
+                t = ax_zoom.text(IDxk, IDyk,IDstr,fontsize = 4,clip_on=True)
+                t.clipbox = ax_zoom.bbox
+
+                #Add motion vector
+                dX = deltaXY[idk,0]
+                dY = deltaXY[idk,1]
+                ax_zoom.quiver(IDxk, IDyk, dX, dY, angles='xy',
+                               scale_units='xy', scale=1, width = 0.005,color = 'b')
+
+            #--------------------------------------------
+            # Set the zoomed figure mapping extent
+            #--------------------------------------------
+            x_mean = np.nanmean(np.squeeze(points[hull.simplices,0]))
+            y_mean = np.nanmean(np.squeeze(points[hull.simplices,1]))
+            ax_zoom.set_extent([x_mean - (a2-a1)/20,
+                                x_mean + (a2-a1)/20,
+                                y_mean - (a4-a3)/30,
+                                y_mean + (a4-a3)/30], proj)
+
+            #--------------------------------------------
+            # Labeling
+            #--------------------------------------------
+            plt.legend(bbox_to_anchor=(0.2, 1.00, 0.8, .102),
+                          ncol=2,fontsize=8.0)
+            plt.text(0.05,1.05,'c)',ha='center', va='center', transform=ax_zoom.transAxes,fontsize=12)
+
+
+
+        # Create the figure filenames
         if datestring is None:
             prefix = "undefined_date"
         else:
             prefix = datestring
+        pair_path  = self.figsPath + prefix + '_structure_idpair_%s.png' % idpair
 
-        FigPath   = self.figsPath + prefix + '_start_end_points.png'
+        print('Saving pairs area figure at ',pair_path)
+        fig_pairs.savefig(pair_path, bbox_inches='tight', dpi=600)
+        plt.close(fig_pairs)
 
-        print('Saving start and end points figure at %s' % (FigPath))
-        fig.savefig(FigPath, bbox_inches='tight', dpi=600)
-        plt.close(fig)
+
+
+
+
+
+
+
 
 
     def show_tripcolor_field(self, data=None, Field = None, title = None, label = None, datestring=None):
@@ -355,279 +526,9 @@ class visualisation:
         return
 
 
-    def show_stacked_pairs(self, data=None,  datestring=None):
-        """
-        This function prints the contours (convex hull) of the tracked
-        points in a spectic netCDF.
 
-        INPUTS:
-        data       :: dataset object including data from SIDRR netcdf file
-                      (LoadDataset.py)
-        datestring :: String indicating the SIDRR netcdf date
 
-        OUTPUTS: --
-        """
 
-        # Set the matplotlib projection and transform
-        proj = ccrs.NorthPolarStereo(central_longitude=0)
-        trans = ccrs.Geodetic()
-
-        # Initialize figure
-        fig_pairs = plt.figure(figsize=(5, 5))
-        ax_pairs = fig_pairs.add_axes([0.1, 0.1, 0.8, 0.8], projection=proj)
-        ax_pairs.set_extent((-4400000, 2500000, 3500000, -2500000), ccrs.NorthPolarStereo())
-
-        print('--- Creating figure showing SAR pair areas ---')
-
-
-        #---------------------------------
-        # Get data for each pair and add its points and area to figure
-        #---------------------------------
-
-        # Looping over SAR image pairs (each image pair IDs in the netcdf)
-        j  = np.unique(data.day_flag)[0]
-        no_day = data.idpair[np.where(data.day_flag==j)]
-        for i in tqdm(np.unique(no_day)):
-            # Get the first and last row of data corresponding to the specific pair of SAR images
-            condi = (data.idpair[:] == i) & (data.day_flag[:] == j)
-            min_index = np.where(condi)[0][0]
-            max_index = np.where(condi)[0][-1]+1
-
-            # Get vertex ids from specific pair, and stack into triangle array, for tripcolor
-            triangles = np.stack((data.ids1[min_index:max_index],
-                                  data.ids2[min_index:max_index],
-                                  data.ids3[min_index:max_index]), axis=-1)
-
-            # Get the list of tracked position and add scatter in figure
-            LatVector, LonVector = data.reconstruct_position_lists(min_index = min_index, max_index = max_index)
-            points = proj.transform_points(trans, np.array(LonVector), np.array(LatVector))
-            ax_pairs.scatter(points[:,0], points[:,1], color = 'red', s = 0.1, marker='+')
-            points = points[:,:-1]
-            points = points[~np.isnan(points[:,0]),:]
-
-            # Make the hull around the points and add area contour line to figure
-            hull = ConvexHull(points)
-            for simplex in hull.simplices:
-                plt.plot(points[simplex, 0], points[simplex, 1], 'k-')
-
-            # Get center location for ID labeling, and write to figure.
-            x_mean = np.nanmean(np.squeeze(points[hull.simplices,0]))
-            y_mean = np.nanmean(np.squeeze(points[hull.simplices,1]))
-            ax_pairs.text(x_mean, y_mean,str(i),fontsize = 2,
-                          verticalalignment ='center',
-                                  horizontalalignment = 'center')
-
-        #--------------------------------------------
-        # Labeling and saving
-        #--------------------------------------------
-
-        # Add gridlines
-        ax_pairs.gridlines()
-        ax_pairs.add_feature(cfeature.LAND, zorder=100, edgecolor='k')
-
-        # Create the figure filenames
-        if datestring is None:
-            prefix = "undefined_date"
-        else:
-            prefix = datestring
-        pair_path  = self.figsPath + prefix + '_pairs.png'
-
-        print('Saving pairs area figure at ',pair_path)
-        fig_pairs.savefig(pair_path, bbox_inches='tight', dpi=600)
-        plt.close(fig_pairs)
-
-        return
-
-
-
-    def plot_triangles(self, data=None,  datestring=None, idpair = None, triangle_zoom = None):
-        """
-        This function makes figures zooming on the triangulared data
-        from a specific SAR image pair.
-
-        INPUTS:
-        data          :: data object from the SIDRR dataset (LoadDataset.py)
-        datestring    :: string indicating date of 1st image acquisition time
-        no            :: ID of the specific SAR image pair investigated
-        triangle_zoom :: if true, a figure zooming on the triangles is also produced.
-
-        OUTPUTS:   :: ---
-        """
-
-
-        # Set the matplotlib projection and transform
-        proj = ccrs.NorthPolarStereo(central_longitude=0)
-        trans = ccrs.Geodetic()
-
-        # Initialize figure
-        fig_tris = plt.figure(figsize=(5, 5))
-        ax_tris = fig_tris.add_axes([0.1, 0.1, 0.8, 0.8], projection=proj)
-        ax_tris.set_extent((-4400000, 2500000, 3500000, -2500000), ccrs.NorthPolarStereo())
-
-        print('--- Creating figures zooming on SAR image pair ID = %s ---' % idpair)
-
-        #---------------------------------
-        # Get data from required SAR image pair
-        #---------------------------------
-
-        # Fetch the image pair data
-        j = np.unique(data.day_flag)[0]
-        no_day = data.idpair[np.where(data.day_flag==j)]
-        i = int(idpair)
-
-        # Get the first and last row of data corresponding to the specific pair of SAR images
-        condi = (data.idpair[:] == i) & (data.day_flag[:] == j)
-        min_index = np.where(condi)[0][0]
-        max_index = np.where(condi)[0][-1]+1
-
-        # Get vertex ids from specific pair, and stack into triangle array, for tripcolor
-        triangles = np.stack((data.ids1[min_index:max_index],
-                              data.ids2[min_index:max_index],
-                              data.ids3[min_index:max_index]), axis=-1)
-
-        #Reconstruct the position vectors used for triangulation
-        LatVector, LonVector = data.reconstruct_position_lists(min_index = min_index, max_index = max_index)
-
-        #Keep only values from specific SAR pair
-        data_colours = data.div[min_index:max_index]
-
-        # tranform the coordinates already to improve the plot efficiency
-        new_coords = proj.transform_points(trans, np.array(LonVector), np.array(LatVector))
-        tria = tri.Triangulation(new_coords[:,0], new_coords[:,1], triangles=triangles)
-
-        #---------------------------------
-        # Calculate new boundaries to zoom on figure
-        #---------------------------------
-
-        # Get 4 reference point for map extent, based on the tracked point positions
-        x,y = new_coords[:,0],new_coords[:,1]
-        a1 = np.nanmin(new_coords[:,0])
-        a2 = np.nanmax(new_coords[:,0])
-        a3 = np.nanmin(new_coords[:,1])
-        a4 = np.nanmax(new_coords[:,1])
-        a = len(x)
-
-        points = new_coords.copy()
-        points = points[:,:-1]
-        points = points[~np.isnan(points[:,0]),:]
-        try:
-            ax_tris.set_extent((a1, a2, a3, a4),proj)
-        except:
-            sys.exit("error in extent : %s, %s, %s, %s" % (a1, a2, a3, a4))
-
-
-        #---------------------------------
-        # Add pcolor and hull contour to figure
-        #---------------------------------
-
-        if len(triangles) != 0:
-
-            #Add tripcolor of the divergence rate calculated from the SAR image pair
-            cb_div = ax_tris.tripcolor(tria, facecolors=data_colours,cmap='coolwarm',
-                                       vmin=-0.04, vmax=0.04, edgecolors='k')
-
-            # Make the hull around the points and add area contour line to figure
-            hull = ConvexHull(points)
-            for simplex in hull.simplices:
-                plt.plot(points[simplex, 0], points[simplex, 1], 'k-')
-
-
-        #--------------------------------------------
-        # Labeling and saving
-        #--------------------------------------------
-
-        #plt.title("Triangulated data for pair id = %s" % idpair )
-        ax_tris.gridlines()
-        ax_tris.add_feature(cfeature.LAND, zorder=100, edgecolor='k')
-
-        # Create the figure filenames
-        if datestring is None:
-            prefix = "undefined_date"
-        else:
-            prefix = datestring
-
-        tri_path  = '%s%s_pair_id_%s.png' % (self.figsPath,prefix,idpair)
-        print('Saving triangulated data figure at ',tri_path)
-        fig_tris.savefig(tri_path, dpi=600)
-        plt.close(fig_tris)
-
-        #=============================================================
-        #--------------------------------------------
-        # Making an other figure, if zoom_on_triangle is true:
-        #--------------------------------------------
-        #=============================================================
-
-        if (len(triangles) != 0) and (triangle_zoom is True):
-
-            # Initialize figure
-            fig_zoom = plt.figure(figsize=(5, 5))
-            ax_zoom = fig_zoom.add_axes([0.1, 0.1, 0.8, 0.8], projection=proj)
-
-            #---------------------------------
-            # Get additional motion vector data from SAR image pair
-            #---------------------------------
-
-            #Make ID and position vectors by concatenating the 3 vertex IDs and positions
-            IDs = np.concatenate((data.ids1[min_index:max_index], data.ids2[min_index:max_index], data.ids3[min_index:max_index]), axis=0)
-
-            #Also get the end point coordinates
-            LatVectorEnd, LonVectorEnd = data.reconstruct_position_lists(min_index = min_index, max_index = max_index, EndPoint = True)
-            new_coords_end = proj.transform_points(trans, np.array(LonVectorEnd), np.array(LatVectorEnd))
-            tria_end = tri.Triangulation(new_coords_end[:,0], new_coords_end[:,1], triangles=triangles)
-
-            #Get the drift of each point between the 2 images, in X-Y coords.
-            deltaXY = new_coords_end - new_coords
-
-            #---------------------------------
-            # Add pcolor and start/end positions to figure
-            #---------------------------------
-
-            #Show triangles with no fill color
-            cb_div_zoom = ax_zoom.tripcolor(tria, facecolors=data_colours*np.nan,cmap='coolwarm', vmin=-0.04, vmax=0.04, edgecolors='k')
-
-            #Scatter start and end positions
-            ax_zoom.scatter(new_coords[:,0], new_coords[:,1], color = 'k', s = 5, marker='*',label = 'start points')
-            ax_zoom.scatter(new_coords_end[:,0], new_coords_end[:,1], color = 'b', s = 5, marker='*',label = 'end points')
-
-            #Add vertex ID labels
-            for idk in tqdm(np.unique(IDs)):
-                IDxk = new_coords[idk,0]
-                IDyk = new_coords[idk,1]
-                IDstr = str(idk)
-                t = ax_zoom.text(IDxk, IDyk,IDstr,fontsize = 4,clip_on=True)
-                t.clipbox = ax_zoom.bbox
-
-                #Add motion vector
-                dX = deltaXY[idk,0]
-                dY = deltaXY[idk,1]
-                ax_zoom.quiver(IDxk, IDyk, dX, dY, angles='xy',
-                               scale_units='xy', scale=1, width = 0.005,color = 'b')
-
-            #--------------------------------------------
-            # Set the zoomed figure mapping extent
-            #--------------------------------------------
-
-            x_mean = np.nanmean(np.squeeze(points[hull.simplices,0]))
-            y_mean = np.nanmean(np.squeeze(points[hull.simplices,1]))
-            ax_zoom.set_extent([x_mean - (a2-a1)/20,
-                                x_mean + (a2-a1)/20,
-                                y_mean - (a4-a3)/30,
-                                y_mean + (a4-a3)/30], proj)
-
-            #--------------------------------------------
-            # Labeling and saving
-            #--------------------------------------------
-
-            plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
-                          ncol=2, mode="expand", borderaxespad=0.,fontsize=10.0 )
-
-            zoom_path   = '%s%s_pair_id_%s_zoomed.png' % (self.figsPath,prefix,idpair)
-            print('Saving zoomed data figure at ',zoom_path)
-
-            fig_zoom.savefig(zoom_path, dpi=600)
-            plt.close(fig_zoom)
-
-        return
 
 
     def plot_area_dist(self, dist1 = None, dist2 = None, dist3 = None,
@@ -1015,61 +916,7 @@ class visualisation:
         return
 
 
-    def plot_s2n_dist(self, dist1 = None, dist2 = None, dist3 = None, datestring = None):
-
-        """
-        This function produces a figure showing distributions of
-        SIDRR data, as defined by the input 1Ddistribution objects.
-
-        Input: - dist1,2,3      :: Analysis objects data include the histograms to be printed.
-                                   The object class is defined in Statistics_objects.py
-               - datestring     :: string indicating the start and end dates of the
-                                   analysis.
-        """
-
-        centroids = dist1.bins #(dist1.bins[1:] + dist1.bins[:-1]) / 2
-
-        # figure initialization
-        fig = plt.figure(figsize=(6.5, 5.5))
-        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
-        if dist2 is None and dist3 is None:
-            plt1 = plt.hist(centroids,bins = len(dist1.distribution),weights = dist1.distribution/np.nansum(dist1.distribution),
-                            range = ( min(dist1.bins), max(dist1.bins)), color = 'b')
-        else:
-            plt1 = plt.hist(centroids,bins = len(dist1.distribution),weights = dist1.distribution/np.nansum(dist1.distribution),
-                            range = ( min(dist1.bins), max(dist1.bins)), alpha = 0.5, color = 'b')
-        if dist2 is not None:
-            plt2 = plt.hist(centroids,bins = len(dist2.distribution),weights = dist2.distribution/np.nansum(dist2.distribution),
-                            range = ( min(dist2.bins), max(dist2.bins)), alpha = 0.5, color = 'b')
-        if dist3 is not None:
-            plt3 = plt.hist(centroids,bins = len(dist3.distribution),weights = dist3.distribution/np.nansum(dist3.distribution),
-                            range = ( min(dist3.bins), max(dist3.bins)), alpha = 0.5, color = 'b')
-
-        if dist3 is not None:
-            plt.legend((dist1.label,dist2.label,dist3.label))
-
-        dens = True
-        if dens:
-            plt.ylabel('PDF')
-        else :
-            plt.ylabel('Number of triangles')
-        plt.xlabel('signal-to-noise ratio')
-        plt.xlim(0,3)
-
-        # Make figure path name and save
-        if datestring is None:
-            prefix = "undefined_date"
-        else:
-            prefix = datestring
-        fig_path = self.figsPath + prefix + '_s2n_hist.png'
-        fig.savefig(fig_path, bbox_inches='tight', dpi=600)
-        plt.close(fig)
-
-        return
-
-
-
-    def plot_errors(self, data=None, datestring=None):
+    def plot_errors(self, data=None, datestring=None, idpair = None):
         """
         This function plots the deformation errors from a netCDF file using matplotlib's ax.tripcolor.
         The function assumes that the netCDF was generated from src/SeaIceDeformation's M01_d03_compute_deformations.py.
@@ -1097,16 +944,23 @@ class visualisation:
 
         # Create a list of axes to be iterated overfig_errs.add_axes([0.1, 0.34, 0.8, 0.25], projection=proj)
         ax_list = [ax_eps, ax_s2n]
-#        ax_eps.set_extent((-3800000, 2300000, 3000000, -2500000), ccrs.NorthPolarStereo())
         ax_eps.set_extent((-1000000, 600000, 1100000, -20000), ccrs.NorthPolarStereo())
         ax_s2n.set_extent((-1000000, 600000, 1100000, -20000), ccrs.NorthPolarStereo())
 
+
+
+        #============================================================
+        #
+        # Panel a) and d): Mapping the deformation and s2n in central Arctic
+        #
+        #============================================================
 
         #---------------------------------
         # Get data for specfic SAR image pair and prepare for tripcolor
         #---------------------------------
 
         print('--- Creating sea-ice error figures ---')
+
         data.errtot[data.errtot>1000.0] = np.nan
         # Looping over SAR image pairs (each image pair IDs from each daily netcdf)
         for j in tqdm(np.unique(data.day_flag)):
@@ -1128,12 +982,13 @@ class visualisation:
 
             eps_colours = (data.shr[min_index:max_index]**2.0 + data.shr[min_index:max_index]**2.0)**0.5
             s2n_colours = data.s2n[min_index:max_index]**2.0
+
             # tranform the coordinates already to improve the plot efficiency
             new_coords = proj.transform_points(trans, np.array(LonVector), np.array(LatVector))
             tria = tri.Triangulation(new_coords[:,0], new_coords[:,1], triangles=triangles)
 
             #--------------------------------------------
-            # Add tripcolor to figure
+            # Add tripcolor to figure a) and d)
             #--------------------------------------------
             if len(triangles) != 0:
                 cb_eps = ax_eps.tripcolor(tria, facecolors=eps_colours, cmap='plasma',vmin=0.0, vmax=0.4)
@@ -1149,28 +1004,12 @@ class visualisation:
                 plt.text(0.5,1.1,'s$^2$',ha='center', va='center', transform=cb_ax_s2n.transAxes,fontsize=8)
 #                plt.text(0.9,0.05,'d)',ha='center', va='center', transform=ax_s2n.transAxes,fontsize=12)
 
-        #--------------------------------------------
-        # Labeling and saving
-        #--------------------------------------------
-        # Create a list of colorbars and titles to be iterated over
 
-        #List of titles and labels
-        eps_title ="$\dot{\epsilon}_\mathrm{tot}$ (day$^{-1}$)"
-        s2n_title = "s$^2$"
-        title_list = [eps_title, s2n_title]
-        lbl_list = ["a)","b)"]
-
-#        for ax, title, lbl in zip(ax_list, title_list, lbl_list):
-
-            # Add colorbar label
-#            plt.text(1.02,-0.1,title,ha='left', va='center', transform=ax.transAxes,fontsize=8)
-
-            #Panel label
-#            plt.text(-0.01,0.95,lbl,ha='right', va='center', transform=ax.transAxes,fontsize=12)
-
-            #Grid and landmask
-            #ax.gridlines()
-#            ax.add_feature(cfeature.LAND, zorder=100, edgecolor='k')
+        #============================================================
+        #
+        # Panel b and c: Zooming on specified SAR image pairs
+        #
+        #============================================================
 
 
         # Initialize subplots
@@ -1180,11 +1019,8 @@ class visualisation:
         cb_ax_dist = fig_errs.add_axes([0.555,0.43,0.3,0.015])
         # Create a list of axes to be iterated overfig_errs.add_axes([0.1, 0.34, 0.8, 0.25], projection=proj)
         ax_list = [ax_zoom, ax_dist]
-#        ax_eps.set_extent((-3800000, 2300000, 3000000, -2500000), ccrs.NorthPolarStereo())
         ax_zoom.set_extent((-650000, -200000, 540000, 160000), ccrs.NorthPolarStereo())
         ax_dist.set_extent((-650000, -200000, 540000, 160000), ccrs.NorthPolarStereo())
-        #ax_dist.set_extent((200000,   650000, 340000, -40000), ccrs.NorthPolarStereo())
-
 
         #---------------------------------
         # Get data for specfic SAR image pair and prepare for tripcolor
@@ -1192,55 +1028,40 @@ class visualisation:
 
         print('--- Creating sea-ice error figures ---')
         data.errtot[data.errtot>1000.0] = np.nan
-        # Looping over SAR image pairs (each image pair IDs from each daily netcdf)
-#        for j in tqdm(np.unique(data.day_flag)):
-#        no_day = data.idpair[np.where(data.day_flag>0)]
-#        for i in tqdm(np.unique(no_day)):
-#            print(i)
-#        sadfas
 
-            # Get the first and last row of data corresponding to the specific pair of SAR images
-        f = 0
-        for pair in [252, 8, 28, 35, 79]: # [8, 28,35,79, 252]:
-            j = int(pair)
-            j = 159 #252
-            condi = (data.idpair[:] == j)
-            min_index = np.where(condi)[0][0]
-            max_index = np.where(condi)[0][-1]+1
+        # Get the first and last row of data corresponding to the specific pair of SAR images
+        j = int(idpair)
+        condi = (data.idpair[:] == j)
+        min_index = np.where(condi)[0][0]
+        max_index = np.where(condi)[0][-1]+1
 
-            # Get vertex ids from specific pair, and stack into triangle array, for tripcolor
-            triangles = np.stack((data.ids1[min_index:max_index],
-                                  data.ids2[min_index:max_index],
-                                  data.ids3[min_index:max_index]), axis=-1)
+        # Get vertex ids from specific pair, and stack into triangle array, for tripcolor
+        triangles = np.stack((data.ids1[min_index:max_index],
+                              data.ids2[min_index:max_index],
+                              data.ids3[min_index:max_index]), axis=-1)
 
-            #Reconstruct the position vectors used for triangulation
-            LatVector, LonVector = np.array(data.reconstruct_position_lists(min_index = min_index, max_index = max_index))
-            LatVectorEnd, LonVectorEnd = np.array(data.reconstruct_position_lists(min_index = min_index, max_index = max_index, EndPoint = True))
+        #Reconstruct the position vectors used for triangulation
+        LatVector, LonVector = np.array(data.reconstruct_position_lists(min_index = min_index, max_index = max_index))
+        LatVectorEnd, LonVectorEnd = np.array(data.reconstruct_position_lists(min_index = min_index, max_index = max_index, EndPoint = True))
 
-            zoom_colours =  (data.shr[min_index:max_index]**2.0 + data.shr[min_index:max_index]**2.0)**0.5
-            new_coords = proj.transform_points(trans, np.array(LonVector), np.array(LatVector))
-            tria = tri.Triangulation(new_coords[:,0], new_coords[:,1], triangles=triangles)
-            dist_colours = LatVector.copy()*np.nan
-            ind = 0
-            for lat1, lat2, lon1, lon2 in zip(LatVector, LatVectorEnd,LonVector,LonVectorEnd):
-                if np.isnan(lat1) == 0:
-                    dist_colours[ind] = haversine((lat1, lon1), (lat2, lon2), unit='km')
-                ind = ind+1
-            if f == 0:
-                new_coord = new_coords.copy()
-                new_coord_dist = new_coords.copy()
-                dist_colour = dist_colours.copy()
-                f = 1
-            else:
-                new_coord_zoom = new_coords.copy()
-                zoom_colour = dist_colours.copy()
-                #new_coord = np.append(new_coord,new_coords,axis=0)
-                #dist_colour = np.append(dist_colour,dist_colours,axis=0)
-            #--------------------------------------------
-            # Add tripcolor to figure
-            #--------------------------------------------
+        zoom_colours =  (data.shr[min_index:max_index]**2.0 + data.shr[min_index:max_index]**2.0)**0.5
+        new_coords = proj.transform_points(trans, np.array(LonVector), np.array(LatVector))
+        tria = tri.Triangulation(new_coords[:,0], new_coords[:,1], triangles=triangles)
+        dist_colours = LatVector.copy()*np.nan
+        ind = 0
+        for lat1, lat2, lon1, lon2 in zip(LatVector, LatVectorEnd,LonVector,LonVectorEnd):
+            if np.isnan(lat1) == 0:
+                dist_colours[ind] = haversine((lat1, lon1), (lat2, lon2), unit='km')
+            ind = ind+1
+        new_coord = new_coords.copy()
+        new_coord_dist = new_coords.copy()
+        dist_colour = dist_colours.copy()
+
+
+        #--------------------------------------------
+        # Add tripcolor to figure
+        #--------------------------------------------
         cb_zoom = ax_zoom.tripcolor(tria, facecolors=zoom_colours, cmap='plasma',vmin=0.0, vmax=0.4)
-        #cb_zoom = ax_zoom.scatter(new_coord_zoom[:,0],new_coord_zoom[:,1], s = 10, c=zoom_colour, cmap='plasma',vmin = 1.0, vmax = 3.0)
         cb_dist = ax_dist.scatter(new_coord_dist[:,0],new_coord_dist[:,1], s = 10, c=dist_colour, cmap='plasma',vmin = 1.0, vmax = 3.0)
 
         clb_zoom = plt.colorbar(cb_zoom, orientation='horizontal',cax=cb_ax_zoom)
@@ -1257,12 +1078,6 @@ class visualisation:
         zoom_title ="$\dot{\epsilon}_\mathrm{tot}$ (day$^{-1}$)"
         dist_title = "s$^2$"
         title_list = [zoom_title, dist_title]
-
-#        for ax, title in zip(ax_list, title_list):
-
-            # Add colorbar label
-#            plt.text(1.12,1.02,title,ha='center', va='center', transform=ax.transAxes,fontsize=8)
-#            ax.add_feature(cfeature.LAND, zorder=100, edgecolor='k')
 
 
         # Create the figure filenames
