@@ -46,6 +46,7 @@ class Data_Distribution:
         delta = (RightBC-LeftBC)/nbins
         self.BinEdges = np.arange(0,nbins+1)*delta+LeftBC # bins initialization
         self.bins = (self.BinEdges[1:]+self.BinEdges[:-1])/2.0
+        self.BinsWidth = self.BinEdges[1:]-self.BinEdges[:-1]
         self.distribution = self.bins.copy()*0.0
 
         #Metadata for labelling
@@ -60,8 +61,7 @@ class Data_Distribution:
 
         Input: Data :: array which values will be distributed in bins.
         """
-
-        (temp_hist,_) = np.histogram((Data[:]**0.5)/1000.0,
+        (temp_hist,_) = np.histogram(Data,
                                      self.BinEdges,
                                      density=False)
         self.distribution = self.distribution[:] + temp_hist[:]
@@ -133,7 +133,7 @@ class Coverage_map:
         # Adding interval-specific histogram to total histogram
         H[H > 0.0] = 1.0
 
-        self.covered_area = (np.nansum(H)*(int(self.resolution)**2))
+        self.covered_area = (np.nansum(H)*(int(self.resolution)**2))*1e-12
         self.H = self.H.copy() + H
 
 
