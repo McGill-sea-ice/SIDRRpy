@@ -282,7 +282,7 @@ if __name__ == '__main__':
                                datestring = TimeTool.StartDate_str + '_' + TimeTool.EndDate_str)
     # Make figure showing the distribution of propagation errors
     # (Fig. 6 in Plante et al., 2024)
-    if config['visualize']['show_spatial_scale_dist'] == 'True':
+    if config['visualize']['show_error_dist'] == 'True':
         visuals.plot_error_dist(dist1 = errtot_dist_S1, dist2 = errtot_dist_RCM, dist3 = errtot_dist_all,
                                dist_s1 = s2n_dist_S1, dist_s2 = s2n_dist_RCM, dist_s3 = s2n_dist_all, data = Data_Mem,
                                datestring = TimeTool.StartDate_str + '_' + TimeTool.EndDate_str)
