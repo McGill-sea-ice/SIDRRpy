@@ -162,7 +162,8 @@ if __name__ == '__main__':
     # Head_start is the Delta-t associated with different reference date
     # in the data carried over from previous dates.
     Head_start = Delta_days_init*60*60*24
-
+    Ndata = 0.0
+    Asum = 0.0
     # Iterating over each day
     for ThisTime in TimeTool.daterange():
 
@@ -190,7 +191,10 @@ if __name__ == '__main__':
 
         if Data_Mem is not None:
             Data.Concatenate_data(Data2 = Data_Mem)
-        print(np.nanmean(Data.A**0.5)/1000.0)
+        Asum = Asum + np.nansum(Data.A**0.5)/1000.0
+        Ndata = Ndata + np.nansum(Data.A**0.5)/np.nanmean(Data.A**0.5)
+        print(Asum/Ndata, Ndata)
+
         #Use to limit the analysis to specific months. Otherwise, ignore.
         if Period == 'all' or TimeTool.ThisTime.month == int(Period):
 

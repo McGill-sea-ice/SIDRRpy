@@ -105,12 +105,12 @@ class SID_dataset:
         self.dvdy = (ds.variables['dvdy'][:])[:]
 
         #Extracting uncertainty data
-        self.errI = (ds.variables['err_div'][:])[:]**0.5
-        self.errII = (ds.variables['err_shr'][:])[:]**0.5
-        self.errvrt = (ds.variables['err_vrt'][:])[:]**0.5
+        self.errI = (ds.variables['err_div'][:])[:]
+        self.errII = (ds.variables['err_shr'][:])[:]
+        self.errvrt = (ds.variables['err_vrt'][:])[:]
         self.s2n = (ds.variables['s2n'][:])[:]
 
-        self.errtot = ((self.div*self.errI)**2.0 + (self.shr*self.errII)**2.0 / (self.div**2.0 + self.shr**2.0))**0.5
+        self.errtot = ((self.div*self.errI**2.0)**2.0 + (self.shr*self.errII**2.0)**2.0 / (self.div**2.0 + self.shr**2.0))**0.5
 
         #closing the dataset
         ds.close()
