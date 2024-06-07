@@ -110,7 +110,7 @@ class SID_dataset:
         self.errvrt = (ds.variables['err_vrt'][:])[:]
         self.s2n = (ds.variables['s2n'][:])[:]
 
-        self.errtot = ((self.div*self.errI**2.0)**2.0 + (self.shr*self.errII**2.0)**2.0 / (self.div**2.0 + self.shr**2.0))**0.5
+        self.errtot = ((self.div*self.errI)**2.0 + (self.shr*self.errII)**2.0 / (self.div**2.0 + self.shr**2.0))**0.5
 
         #closing the dataset
         ds.close()

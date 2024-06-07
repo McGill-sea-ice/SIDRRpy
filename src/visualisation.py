@@ -877,7 +877,7 @@ class visualisation:
         #---------------------------------------
         #Pannel with scatter of error, time and s2n
         #---------------------------------------
-        ax3 = fig.add_axes([0.60, 0.15, 0.2, 0.82])
+        ax3 = fig.add_axes([0.58, 0.15, 0.22, 0.82])
 
         epstot = (data.shr[:]**2.0 + data.div**2.0)**0.5
         dT     = (data.end_time-data.start_time)/3600.0
