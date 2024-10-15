@@ -108,15 +108,24 @@ class Coverage_map:
         trans = ccrs.Geodetic()
 
         if Satellite is not None:
-            start_lats = np.concatenate((Data.start_lat1[Data.satellite[:]==Satellite],
+            try:  #This is when using the revised SIDRR dataset set, Plante et al., 2024
+                idpairs = np.unique(Data.idpair[Data.satellite[:]==Satellite])
+                start_lats = Data.start_lat[np.isin(Data.pts_idpair[:],idpairs)]
+                start_lons = Data.start_lon[np.isin(Data.pts_idpair[:],idpairs)]
+            except: #Otherwise, fall back using the former data format
+                start_lats = np.concatenate((Data.start_lat1[Data.satellite[:]==Satellite],
                                          Data.start_lat2[Data.satellite[:]==Satellite],
                                          Data.start_lat3[Data.satellite[:]==Satellite]), axis=0)
-            start_lons = np.concatenate((Data.start_lon1[Data.satellite[:]==Satellite],
+                start_lons = np.concatenate((Data.start_lon1[Data.satellite[:]==Satellite],
                                          Data.start_lon2[Data.satellite[:]==Satellite],
                                          Data.start_lon3[Data.satellite[:]==Satellite]), axis=0)
         else:
-            start_lats = np.concatenate((Data.start_lat1,Data.start_lat2,Data.start_lat3), axis=0)
-            start_lons = np.concatenate((Data.start_lon1, Data.start_lon2, Data.start_lon3), axis=0)
+            try: #This is when using the revised SIDRR dataset set, Plante et al., 2024
+                start_lats = Data.start_lat[:]
+                start_lons = Data.start_lon[:]
+            except: #Otherwise, fall back using the former data format
+                start_lats = np.concatenate((Data.start_lat1,Data.start_lat2,Data.start_lat3), axis=0)
+                start_lons = np.concatenate((Data.start_lon1, Data.start_lon2, Data.start_lon3), axis=0)
 
         try:
             new_coords = proj.transform_points(trans, np.array(start_lons), np.array(start_lats))
