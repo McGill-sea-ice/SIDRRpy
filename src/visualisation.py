@@ -784,9 +784,9 @@ class visualisation:
         fig = plt.figure(figsize=(5, 3.5))
         ax = fig.add_axes([0.12, 0.12, 0.82, 0.82])
 
-        plt.plot(Data1.timeaxis,Data1.covered_area_tseries[:],'k-')
-        plt.plot(Data2.timeaxis,Data2.covered_area_tseries[:],'b-')
-        plt.plot(Data3.timeaxis,Data3.covered_area_tseries[:],'orange')
+        plt.plot(Data1.timeaxis,Data1.covered_area_tseries[:],'k-', alpha=0.7)
+        plt.plot(Data2.timeaxis,Data2.covered_area_tseries[:],'b-', alpha=0.7)
+        plt.plot(Data3.timeaxis,Data3.covered_area_tseries[:],'orange', alpha=0.7)
 
         plt.xticks(DateTicks,labels_list)
         plt.xlim(Data1.timeaxis[0],Data1.timeaxis[len(Data1.timeaxis)-1]+3)
@@ -979,7 +979,6 @@ class visualisation:
 
             #Reconstruct the position vectors used for triangulation
             LatVector, LonVector = data.reconstruct_position_lists(min_index = min_index, max_index = max_index)
-
             eps_colours = (data.shr[min_index:max_index]**2.0 + data.shr[min_index:max_index]**2.0)**0.5
             s2n_colours = data.s2n[min_index:max_index]**2.0
 

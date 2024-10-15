@@ -19,10 +19,6 @@ from netCDF4 import Dataset
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Code from other files
-#from SatelliteCoverage.utils import date_to_seconds, seconds_to_date, convert_to_grid, get_prefix
-
-
 
 # Loads netCDF data
 class SID_dataset:
@@ -64,7 +60,6 @@ class SID_dataset:
         icetracker = ds.getncattr('SatelliteSource')
         tolerance = ds.getncattr('Max_Deltat')
         trackingerror = ds.getncattr('trackingError')
-#       end_year, end_month, end_day = Date_options['end_year'], Date_options['end_month'], Date_options['end_day']
 
         # Load netCDF as Dataset from *path*
         ds = Dataset(path, mode='r')
@@ -74,19 +69,27 @@ class SID_dataset:
         self.end_time = ds.variables['end_time'][:]
         self.satellite = ds.variables['satellite'][:]
 
-        # Extracting motion data (Filtered by time only)
-        self.start_lat1 = (ds.variables['start_lat1'][:])[:]
-        self.start_lat2 = (ds.variables['start_lat2'][:])[:]
-        self.start_lat3 = (ds.variables['start_lat3'][:])[:]
-        self.start_lon1 = (ds.variables['start_lon1'][:])[:]
-        self.start_lon2 = (ds.variables['start_lon2'][:])[:]
-        self.start_lon3 = (ds.variables['start_lon3'][:])[:]
-        self.end_lat1 = (ds.variables['end_lat1'][:])[:]
-        self.end_lat2 = (ds.variables['end_lat2'][:])[:]
-        self.end_lat3 = (ds.variables['end_lat3'][:])[:]
-        self.end_lon1 = (ds.variables['end_lon1'][:])[:]
-        self.end_lon2 = (ds.variables['end_lon2'][:])[:]
-        self.end_lon3 = (ds.variables['end_lon3'][:])[:]
+        try:  #This is when using the revised SIDRR dataset set, Plante et al., 2024
+            self.start_lat = (ds.variables['start_lat'][:])[:]
+            self.start_lon = (ds.variables['start_lon'][:])[:]
+            self.end_lat = (ds.variables['end_lat'][:])[:]
+            self.end_lon = (ds.variables['end_lon'][:])[:]
+            self.pts_idpair = (ds.variables['pts_idpair'][:])[:]
+
+        except: #Otherwise, fall back to previous dataset format
+            # Extracting motion data (Filtered by time only)
+            self.start_lat1 = (ds.variables['start_lat1'][:])[:]
+            self.start_lat2 = (ds.variables['start_lat2'][:])[:]
+            self.start_lat3 = (ds.variables['start_lat3'][:])[:]
+            self.start_lon1 = (ds.variables['start_lon1'][:])[:]
+            self.start_lon2 = (ds.variables['start_lon2'][:])[:]
+            self.start_lon3 = (ds.variables['start_lon3'][:])[:]
+            self.end_lat1 = (ds.variables['end_lat1'][:])[:]
+            self.end_lat2 = (ds.variables['end_lat2'][:])[:]
+            self.end_lat3 = (ds.variables['end_lat3'][:])[:]
+            self.end_lon1 = (ds.variables['end_lon1'][:])[:]
+            self.end_lon2 = (ds.variables['end_lon2'][:])[:]
+            self.end_lon3 = (ds.variables['end_lon3'][:])[:]
 
         #Extracting SAR image and triangle vertex IDs
         self.ids1 = (ds.variables['ids1'][:])[:]
@@ -138,18 +141,22 @@ class SID_dataset:
         self.start_time = self.start_time[indices]
         self.satellite = self.satellite[indices]
         self.end_time = self.end_time[indices]
-        self.start_lat1 = self.start_lat1[indices]
-        self.start_lat2 = self.start_lat2[indices]
-        self.start_lat3 = self.start_lat3[indices]
-        self.start_lon1 = self.start_lon1[indices]
-        self.start_lon2 = self.start_lon2[indices]
-        self.start_lon3 = self.start_lon3[indices]
-        self.end_lat1 = self.end_lat1[indices]
-        self.end_lat2 = self.end_lat2[indices]
-        self.end_lat3 = self.end_lat3[indices]
-        self.end_lon1 = self.end_lon1[indices]
-        self.end_lon2 = self.end_lon2[indices]
-        self.end_lon3 = self.end_lon3[indices]
+
+        try:  #This is only when using the former SIDRR dataset format
+            self.start_lat1 = self.start_lat1[indices]
+            self.start_lat2 = self.start_lat2[indices]
+            self.start_lat3 = self.start_lat3[indices]
+            self.start_lon1 = self.start_lon1[indices]
+            self.start_lon2 = self.start_lon2[indices]
+            self.start_lon3 = self.start_lon3[indices]
+            self.end_lat1 = self.end_lat1[indices]
+            self.end_lat2 = self.end_lat2[indices]
+            self.end_lat3 = self.end_lat3[indices]
+            self.end_lon1 = self.end_lon1[indices]
+            self.end_lon2 = self.end_lon2[indices]
+            self.end_lon3 = self.end_lon3[indices]
+        except:
+            print("Skipped filtering for old variables from old schemes")
         self.A = self.A[indices]
         self.div = self.div[indices]
         self.shr = self.shr[indices]
@@ -169,6 +176,13 @@ class SID_dataset:
         self.s2n   = self.s2n[indices]
         self.Mask = self.Mask[indices]
         self.day_flag = self.day_flag[indices]
+
+        self.start_lat = self.start_lat[np.isin(self.pts_idpair,self.idpair)]
+        self.start_lon = self.start_lon[np.isin(self.pts_idpair,self.idpair)]
+        self.end_lat = self.end_lat[np.isin(self.pts_idpair,self.idpair)]
+        self.end_lon = self.end_lon[np.isin(self.pts_idpair,self.idpair)]
+        self.pts_idpair = self.pts_idpair[np.isin(self.pts_idpair,self.idpair)]
+
 
     def mask_data(self, indices = None):
         """
@@ -204,23 +218,32 @@ class SID_dataset:
         self.end_time = np.append(self.end_time,Data2.end_time)
         self.satellite = np.append(self.satellite, Data2.satellite)
 
-        self.start_lat1 = np.append(self.start_lat1, Data2.start_lat1)
-        self.start_lat2 = np.append(self.start_lat2,Data2.start_lat2)
-        self.start_lat3 = np.append(self.start_lat3,Data2.start_lat3)
-        self.start_lon1 = np.append(self.start_lon1,Data2.start_lon1)
-        self.start_lon2 = np.append(self.start_lon2,Data2.start_lon2)
-        self.start_lon3 = np.append(self.start_lon3,Data2.start_lon3)
-        self.end_lat1 = np.append(self.end_lat1,Data2.end_lat1)
-        self.end_lat2 = np.append(self.end_lat2,Data2.end_lat2)
-        self.end_lat3 = np.append(self.end_lat3,Data2.end_lat3)
-        self.end_lon1 = np.append(self.end_lon1,Data2.end_lon1)
-        self.end_lon2 = np.append(self.end_lon2,Data2.end_lon2)
-        self.end_lon3 = np.append(self.end_lon3,Data2.end_lon3)
+        try:  #This is when using the revised SIDRR dataset set, Plante et al., 2024
+            self.start_lat = np.append(self.start_lat,Data2.start_lat)
+            self.start_lon = np.append(self.start_lon,Data2.start_lon)
+            self.end_lat = np.append(self.end_lat,Data2.end_lat)
+            self.end_lon = np.append(self.end_lon,Data2.end_lon)
+            idmax = np.nanmax(self.pts_idpair)
+            self.pts_idpair = np.append(self.pts_idpair,Data2.pts_idpair+idmax+1)
+        except: #Otherwise, fall back to using the format SIDRR dataset format
+            self.start_lat1 = np.append(self.start_lat1, Data2.start_lat1)
+            self.start_lat2 = np.append(self.start_lat2,Data2.start_lat2)
+            self.start_lat3 = np.append(self.start_lat3,Data2.start_lat3)
+            self.start_lon1 = np.append(self.start_lon1,Data2.start_lon1)
+            self.start_lon2 = np.append(self.start_lon2,Data2.start_lon2)
+            self.start_lon3 = np.append(self.start_lon3,Data2.start_lon3)
+            self.end_lat1 = np.append(self.end_lat1,Data2.end_lat1)
+            self.end_lat2 = np.append(self.end_lat2,Data2.end_lat2)
+            self.end_lat3 = np.append(self.end_lat3,Data2.end_lat3)
+            self.end_lon1 = np.append(self.end_lon1,Data2.end_lon1)
+            self.end_lon2 = np.append(self.end_lon2,Data2.end_lon2)
+            self.end_lon3 = np.append(self.end_lon3,Data2.end_lon3)
 
         self.ids1 = np.append(self.ids1,Data2.ids1)
         self.ids2 = np.append(self.ids2,Data2.ids2)
         self.ids3 = np.append(self.ids3,Data2.ids3)
-        self.idpair = np.append(self.idpair,Data2.idpair)
+        idmax = np.nanmax(self.idpair)
+        self.idpair = np.append(self.idpair,Data2.idpair+idmax+1)
         self.day_flag = np.append(self.day_flag,Data2.day_flag)
 
         self.A = np.append(self.A,Data2.A)
@@ -241,6 +264,7 @@ class SID_dataset:
         self.Mask = np.append(self.Mask,Data2.Mask)
 
 
+
     def reconstruct_position_lists(self, min_index= None,max_index=None, EndPoint = None):
         """
         This function reconstruct the list of Lat, Lon position prior to the triangulation
@@ -257,66 +281,81 @@ class SID_dataset:
         new_lon -- Array of longitude values at the positions they were originally in, in the data file
 
         """
+        try:  #This is when using the revised SIDRR dataset set, Plante et al., 2024
+            idpair = np.unique(self.idpair[min_index:max_index])
 
-        (start_lat1_temp,
-        start_lat2_temp,
-        start_lat3_temp) = (self.start_lat1[min_index:max_index],
+            # Skipping blank data files
+            if len(self.idpair[min_index:max_index]) == 0:
+                return 0, 0
+
+            if EndPoint is True:
+                    LatVector = self.end_lat[self.pts_idpair==idpair].copy()
+                    LonVector = self.end_lon[self.pts_idpair==idpair].copy()
+            else:
+                    LatVector = self.start_lat[self.pts_idpair==idpair].copy()
+                    LonVector = self.start_lon[self.pts_idpair==idpair].copy()
+
+
+        except: #Otherwise, fall back on method from former SIDRR dataset format
+            (start_lat1_temp,
+            start_lat2_temp,
+            start_lat3_temp) = (self.start_lat1[min_index:max_index],
                                  self.start_lat2[min_index:max_index],
                                  self.start_lat3[min_index:max_index])
 
-        (start_lon1_temp,
-         start_lon2_temp,
-         start_lon3_temp) = (self.start_lon1[min_index:max_index],
+            (start_lon1_temp,
+             start_lon2_temp,
+             start_lon3_temp) = (self.start_lon1[min_index:max_index],
                                  self.start_lon2[min_index:max_index],
                                  self.start_lon3[min_index:max_index])
 
-        (end_lat1_temp,
-         end_lat2_temp,
-         end_lat3_temp) = (self.end_lat1[min_index:max_index],
+            (end_lat1_temp,
+             end_lat2_temp,
+             end_lat3_temp) = (self.end_lat1[min_index:max_index],
                                  self.end_lat2[min_index:max_index],
                                  self.end_lat3[min_index:max_index])
 
-        (end_lon1_temp,
-         end_lon2_temp,
-         end_lon3_temp) = (self.end_lon1[min_index:max_index],
+            (end_lon1_temp,
+             end_lon2_temp,
+             end_lon3_temp) = (self.end_lon1[min_index:max_index],
                                  self.end_lon2[min_index:max_index],
                                  self.end_lon3[min_index:max_index])
 
-        (ids1,ids2,ids3) = (self.ids1[min_index:max_index],
+            (ids1,ids2,ids3) = (self.ids1[min_index:max_index],
                                  self.ids2[min_index:max_index],
                                  self.ids3[min_index:max_index])
 
-        # Combined list of start IDs
-        start_ids = np.hstack((ids1, ids2, ids3))
+            # Combined list of start IDs
+            start_ids = np.hstack((ids1, ids2, ids3))
 
-        # Skipping blank data files
-        if len(start_ids) == 0:
-            return 0, 0
+            # Skipping blank data files
+            if len(start_ids) == 0:
+                return 0, 0
 
-        # Initializing new lists of coordinates
-        LatVector, LonVector = ([np.nan] * (max(start_ids) + 1) for i in range(2))
+            # Initializing new lists of coordinates
+            LatVector, LonVector = ([np.nan] * (max(start_ids) + 1) for i in range(2))
 
-        if EndPoint is True:
-            for i in range(len(start_lat1_temp)):
-                LatVector[ids1[i]] = end_lat1_temp[i]
-                LatVector[ids2[i]] = end_lat2_temp[i]
-                LatVector[ids3[i]] = end_lat3_temp[i]
+            if EndPoint is True:
+                for i in range(len(start_lat1_temp)):
+                    LatVector[ids1[i]] = end_lat1_temp[i]
+                    LatVector[ids2[i]] = end_lat2_temp[i]
+                    LatVector[ids3[i]] = end_lat3_temp[i]
 
-            for i in range(len(start_lon1_temp)):
-                LonVector[ids1[i]] = end_lon1_temp[i]
-                LonVector[ids2[i]] = end_lon2_temp[i]
-                LonVector[ids3[i]] = end_lon3_temp[i]
+                for i in range(len(start_lon1_temp)):
+                    LonVector[ids1[i]] = end_lon1_temp[i]
+                    LonVector[ids2[i]] = end_lon2_temp[i]
+                    LonVector[ids3[i]] = end_lon3_temp[i]
 
-        else:
+            else:
 
-            for i in range(len(start_lat1_temp)):
-                LatVector[ids1[i]] = start_lat1_temp[i]
-                LatVector[ids2[i]] = start_lat2_temp[i]
-                LatVector[ids3[i]] = start_lat3_temp[i]
+                for i in range(len(start_lat1_temp)):
+                    LatVector[ids1[i]] = start_lat1_temp[i]
+                    LatVector[ids2[i]] = start_lat2_temp[i]
+                    LatVector[ids3[i]] = start_lat3_temp[i]
 
-            for i in range(len(start_lon1_temp)):
-                LonVector[ids1[i]] = start_lon1_temp[i]
-                LonVector[ids2[i]] = start_lon2_temp[i]
-                LonVector[ids3[i]] = start_lon3_temp[i]
+                for i in range(len(start_lon1_temp)):
+                    LonVector[ids1[i]] = start_lon1_temp[i]
+                    LonVector[ids2[i]] = start_lon2_temp[i]
+                    LonVector[ids3[i]] = start_lon3_temp[i]
 
         return LatVector, LonVector
