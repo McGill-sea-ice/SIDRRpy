@@ -51,6 +51,7 @@ import matplotlib.tri as tri
 import matplotlib.pyplot as plt
 import cartopy.feature as cfeature
 from tqdm import tqdm
+sys.path.append(r'/home/map005/data/eccc-ppp6/gitprojects/SIDD/src/')
 import haversine as hs
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
@@ -65,11 +66,12 @@ class visualisation:
                            see options.ini.
         """
 
-        IO            = config['IO']
-        output_folder = IO['output_folder']
-        exp           = IO['exp']
-        self.figsPath =  output_folder + '/' + exp + '/'
-        os.makedirs(self.figsPath, exist_ok=True)
+        if config is not None:
+            IO            = config['IO']
+            output_folder = IO['output_folder']
+            exp           = IO['exp']
+            self.figsPath =  output_folder + '/' + exp + '/'
+            os.makedirs(self.figsPath, exist_ok=True)
 
 
     def plot_data_structure(self, data = None, datestring=None,  idpair = None):
@@ -411,7 +413,7 @@ class visualisation:
 
 
 
-    def plot_deformations(self, data=None, datestring=None):
+    def plot_deformations(self, data=None, datestring=None, Output_Folder = None):
         """
         This function plots deformations from a netCDF file using matplotlib's ax.tripcolor.
         The function assumes that the netCDF was generated from src/SeaIceDeformation's M01_d03_compute_deformations.py.
@@ -518,7 +520,11 @@ class visualisation:
         else:
             prefix = datestring
 
-        defs_path  = self.figsPath + prefix + '_defs.png'
+        if Output_Folder is not None:
+            defs_path  = Output_Folder + 'Deformations_' + prefix + '.png'
+        else:
+            defs_path  = self.figsPath + prefix + '_defs.png'
+
         print("Printing deformation figure at : %s" % defs_path)
         fig_defs.savefig(defs_path, bbox_inches='tight', dpi=600)
         plt.close(fig_defs)
