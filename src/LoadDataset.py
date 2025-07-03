@@ -42,19 +42,9 @@ class SID_dataset:
 
         print('--- Loading data (netcdf) ---')
         path = FileName
-        print(path)
 
         # Load netCDF as Dataset from *path*
         ds = Dataset(path, mode='r')
-
-
-        # Get meta data in object
-        # 1. From config
-        Date_options = config['Date_options']
-
-        # 2. from netcdf metadata
-        self.SatelliteSource  = config['Metadata']['Satellite_Source']
-        start_year, start_month, start_day = Date_options['start_year'], Date_options['start_month'], Date_options['start_day']
 
         reftime = ds.getncattr('referenceTime')
         icetracker = ds.getncattr('SatelliteSource')
@@ -69,27 +59,12 @@ class SID_dataset:
         self.end_time = ds.variables['end_time'][:]
         self.satellite = ds.variables['satellite'][:]
 
-        try:  #This is when using the revised SIDRR dataset set, Plante et al., 2024
-            self.start_lat = (ds.variables['start_lat'][:])[:]
-            self.start_lon = (ds.variables['start_lon'][:])[:]
-            self.end_lat = (ds.variables['end_lat'][:])[:]
-            self.end_lon = (ds.variables['end_lon'][:])[:]
-            self.pts_idpair = (ds.variables['pts_idpair'][:])[:]
 
-        except: #Otherwise, fall back to previous dataset format
-            # Extracting motion data (Filtered by time only)
-            self.start_lat1 = (ds.variables['start_lat1'][:])[:]
-            self.start_lat2 = (ds.variables['start_lat2'][:])[:]
-            self.start_lat3 = (ds.variables['start_lat3'][:])[:]
-            self.start_lon1 = (ds.variables['start_lon1'][:])[:]
-            self.start_lon2 = (ds.variables['start_lon2'][:])[:]
-            self.start_lon3 = (ds.variables['start_lon3'][:])[:]
-            self.end_lat1 = (ds.variables['end_lat1'][:])[:]
-            self.end_lat2 = (ds.variables['end_lat2'][:])[:]
-            self.end_lat3 = (ds.variables['end_lat3'][:])[:]
-            self.end_lon1 = (ds.variables['end_lon1'][:])[:]
-            self.end_lon2 = (ds.variables['end_lon2'][:])[:]
-            self.end_lon3 = (ds.variables['end_lon3'][:])[:]
+        self.start_lat = (ds.variables['start_lat'][:])[:]
+        self.start_lon = (ds.variables['start_lon'][:])[:]
+        self.end_lat = (ds.variables['end_lat'][:])[:]
+        self.end_lon = (ds.variables['end_lon'][:])[:]
+        self.pts_idpair = (ds.variables['pts_idpair'][:])[:]
 
         #Extracting SAR image and triangle vertex IDs
         self.ids1 = (ds.variables['ids1'][:])[:]
@@ -117,6 +92,7 @@ class SID_dataset:
 
         #closing the dataset
         ds.close()
+        print("finished reading cdf")
 
         #Create a Mask object
         self.Mask = self.A.copy()
@@ -131,7 +107,6 @@ class SID_dataset:
         self.Mask[indices] = 0
         self.filter_data(indices = indices)
 
-
     def filter_data(self, indices = None):
         """
         This function filters out data that not satisfying
@@ -141,7 +116,7 @@ class SID_dataset:
         self.start_time = self.start_time[indices]
         self.satellite = self.satellite[indices]
         self.end_time = self.end_time[indices]
-
+        print(len(self.start_lat),len(self.dudx))
         try:  #This is only when using the former SIDRR dataset format
             self.start_lat1 = self.start_lat1[indices]
             self.start_lat2 = self.start_lat2[indices]
