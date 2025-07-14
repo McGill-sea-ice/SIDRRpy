@@ -74,7 +74,7 @@ class visualisation:
             os.makedirs(self.figsPath, exist_ok=True)
 
 
-    def plot_data_structure(self, data = None, datestring=None,  idpair = None):
+    def plot_data_structure(self, data = None, datestring=None,  idpair = None, show_shear = 0):
         """
         """
         print('--- Plotting start and end points ---')
@@ -229,7 +229,7 @@ class visualisation:
 
 
 
-        if (len(triangles) != 0):
+        if (len(triangles) != 0) and (show_shear == 0):
 
             # Initialize figure
             ax_zoom = fig_pairs.add_axes([0.63, 0.15, 0.35, 0.8], projection=proj)
@@ -297,6 +297,35 @@ class visualisation:
             plt.legend(bbox_to_anchor=(0.2, 1.00, 0.8, .102),
                           ncol=2,fontsize=8.0)
             plt.text(0.05,1.05,'c)',ha='center', va='center', transform=ax_zoom.transAxes,fontsize=12)
+
+        else:
+
+            ax_shr = fig_pairs.add_axes([0.63, 0.15, 0.237, 0.8], projection=proj)
+            ax_shr.set_extent((-4400000, 2500000, 3500000, -2500000), ccrs.NorthPolarStereo())
+            print('--- Creating pannel zooming on shear from SAR image pair ID = %s ---' % idpair)
+
+            data_colours = data.shr[min_index:max_index]
+
+            try:
+                ax_shr.set_extent((a1, a2, a3, a4),proj)
+            except:
+                sys.exit("error in extent : %s, %s, %s, %s" % (a1, a2, a3, a4))
+
+            #---------------------------------
+            # Add pcolor and hull contour to figure
+            #---------------------------------
+
+            if len(triangles) != 0:
+                #Add tripcolor of the divergence rate calculated from the SAR image pair
+                cb_shr = ax_shr.tripcolor(tria, facecolors=data_colours,cmap='plasma',
+                                       vmin=-0.04, vmax=0.04, edgecolors='k')
+                # Make the hull around the points and add area contour line to figure
+                hull = ConvexHull(points)
+                for simplex in hull.simplices:
+                    plt.plot(points[simplex, 0], points[simplex, 1], 'k-')
+
+            plt.text(0.06,0.95,'c)',ha='center', va='center', transform=ax_shr.transAxes,fontsize=12)
+
 
 
 
