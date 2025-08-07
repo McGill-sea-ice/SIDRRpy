@@ -97,8 +97,10 @@ class PostProcessed_Data:
         return self.Data
 
 
-    def Kernel_smoothing(self, xr_in = None, xr_ref = None):
+    def Kernel_smoothing(self, xr_in = None, xr_ref = None, n = None):
 
+        if n is None:
+            n = 1
         if xr_in is None:
             xr_in = self.dataset
         if xr_ref is not None:
@@ -135,13 +137,14 @@ class PostProcessed_Data:
                            self.Data.dvdx[condi].copy(),
                            self.Data.dvdy[condi].copy(),
                            Data_ref[condi].copy()])
-            print(Data_shared.shape)                           
+            print(Data_shared.shape)
+            Data_in = Data_shared.copy()
             shm = shared_memory.SharedMemory(create=True, size=Data_shared.nbytes)
             shared_arr = np.ndarray(Data_shared.shape, dtype=Data_shared.dtype, buffer=shm.buf)
             np.copyto(shared_arr, Data_shared)
             print(Data_shared.shape)
 
-            args = [(j, shm.name, shared_arr.shape) for j in range(0, len(shared_arr[0,:]))]
+            args = [(j, shm.name, shared_arr.shape, Data_in,n) for j in range(0, len(shared_arr[0,:]))]
             with ProcessPoolExecutor(max_workers=10) as executor:
                 futures = [executor.submit(Paralleled_Kernel_smoothing, *arg) for arg in args]
 #                for _ in tqdm(as_completed(futures), total=len(futures)):
@@ -238,11 +241,12 @@ class PostProcessed_Data:
                            self.Data.dudy[condi].copy(),
                            self.Data.dvdx[condi].copy(),
                            self.Data.dvdy[condi].copy()])
+            Data_in = Data_shared.copy()
                   
             shm = shared_memory.SharedMemory(create=True, size=Data_shared.nbytes)
             shared_arr = np.ndarray(Data_shared.shape, dtype=Data_shared.dtype, buffer=shm.buf)
             np.copyto(shared_arr, Data_shared)
-            args = [(j, n, shm.name, shared_arr.shape) for j in range(0, len(shared_arr[0,:]))]
+            args = [(j, n, shm.name, shared_arr.shape, Data_in) for j in range(0, len(shared_arr[0,:]))]
 
             with ProcessPoolExecutor(max_workers=1) as executor:
                 futures = [executor.submit(Paralleled_Anisotropic_smoothing, *arg) for arg in args]
@@ -324,34 +328,33 @@ class PostProcessed_Data:
 
 
 
-def Paralleled_Anisotropic_smoothing(j, n, shm_name, shape):
+def Paralleled_Anisotropic_smoothing(j, n, shm_name, shape, Data_in):
 
     shm = shared_memory.SharedMemory(name=shm_name)
     shared_results = np.ndarray(shape, dtype=np.float64, buffer=shm.buf)
 
-#dtype=np.float64,
-    if np.isnan(shared_results[15,j]):
+    if np.isnan(Data_in[15,j]):
         pass
     else:
-        day_flag = shared_results[12,j].copy()
-        idpair = shared_results[11,j].copy()
-        condi = (shared_results[11,:] == idpair) & (shared_results[12,:] == day_flag)
+        day_flag = Data_in[12,j].copy()
+        idpair = Data_in[11,j].copy()
+        condi = (Data_in[11,:] == idpair) & (Data_in[12,:] == day_flag)
         #------Create the pair xarray
-        a = len(shared_results[0,condi])
+        a = len(Data_in[0,condi])
 
         # Make dataset with all scaled variables
-        div = xr.DataArray(shared_results[0,condi].copy(), dims=['x'], name='div',coords={"x": np.arange(a)})
-        shr = xr.DataArray(shared_results[1,condi].copy(), dims=['x'], name='shr',coords={"x": np.arange(a)})
-        vrt = xr.DataArray(shared_results[2,condi].copy(), dims=['x'], name='vrt',coords={"x": np.arange(a)})
-        A =   xr.DataArray(shared_results[14,condi].copy(), dims=['x'], name='A',coords={"x": np.arange(a)})
-        dudx = xr.DataArray(shared_results[15,condi].copy()*shared_results[14,condi].copy(), dims=['x'], name='dudx',coords={"x": np.arange(a)})
-        dudy = xr.DataArray(shared_results[16,condi].copy()*shared_results[14,condi].copy(), dims=['x'], name='dudy',coords={"x": np.arange(a)})
-        dvdx = xr.DataArray(shared_results[17,condi].copy()*shared_results[14,condi].copy(), dims=['x'], name='dvdx',coords={"x": np.arange(a)})
-        dvdy = xr.DataArray(shared_results[18,condi].copy()*shared_results[14,condi].copy(), dims=['x'], name='dvdy',coords={"x": np.arange(a)})
-        ids1 = xr.DataArray(shared_results[8,condi].copy(), dims=['x'], name='ids1',coords={"x": np.arange(a)})
-        ids2 = xr.DataArray(shared_results[9,condi].copy(), dims=['x'], name='ids2',coords={"x": np.arange(a)})
-        ids3 = xr.DataArray(shared_results[10,condi].copy(), dims=['x'], name='ids3',coords={"x": np.arange(a)})
-        s2n = xr.DataArray(shared_results[13,condi].copy(), dims=['x'], name='s2n',coords={"x": np.arange(a)})
+        div = xr.DataArray(Data_in[0,condi].copy(), dims=['x'], name='div',coords={"x": np.arange(a)})
+        shr = xr.DataArray(Data_in[1,condi].copy(), dims=['x'], name='shr',coords={"x": np.arange(a)})
+        vrt = xr.DataArray(Data_in[2,condi].copy(), dims=['x'], name='vrt',coords={"x": np.arange(a)})
+        A =   xr.DataArray(Data_in[14,condi].copy(), dims=['x'], name='A',coords={"x": np.arange(a)})
+        dudx = xr.DataArray(Data_in[15,condi].copy()*Data_in[14,condi].copy(), dims=['x'], name='dudx',coords={"x": np.arange(a)})
+        dudy = xr.DataArray(Data_in[16,condi].copy()*Data_in[14,condi].copy(), dims=['x'], name='dudy',coords={"x": np.arange(a)})
+        dvdx = xr.DataArray(Data_in[17,condi].copy()*Data_in[14,condi].copy(), dims=['x'], name='dvdx',coords={"x": np.arange(a)})
+        dvdy = xr.DataArray(Data_in[18,condi].copy()*Data_in[14,condi].copy(), dims=['x'], name='dvdy',coords={"x": np.arange(a)})
+        ids1 = xr.DataArray(Data_in[8,condi].copy(), dims=['x'], name='ids1',coords={"x": np.arange(a)})
+        ids2 = xr.DataArray(Data_in[9,condi].copy(), dims=['x'], name='ids2',coords={"x": np.arange(a)})
+        ids3 = xr.DataArray(Data_in[10,condi].copy(), dims=['x'], name='ids3',coords={"x": np.arange(a)})
+        s2n = xr.DataArray(Data_in[13,condi].copy(), dims=['x'], name='s2n',coords={"x": np.arange(a)})
 
         xr_pair = xr.Dataset({'div': div,
                                   'shr':  shr,
@@ -368,8 +371,6 @@ def Paralleled_Anisotropic_smoothing(j, n, shm_name, shape):
         min_index = np.squeeze(np.where(condi))[0]
         max_index = np.squeeze(np.where(condi))[-1]+1
         i = j- min_index
-        #for each triangle
-#        xr_pair = xr_in.where(np.logical_and(xr_in['tr_day']==day_flag, xr_in['idpair'] == idpair), drop=True)
 
         #----------------------------
         # Make a kernel for the smoothing
@@ -383,7 +384,7 @@ def Paralleled_Anisotropic_smoothing(j, n, shm_name, shape):
             #Get the id of vertexes
             gen_num_da = xr.DataArray(gen_num.copy(), dims='x', coords={'x': xr_pair.coords['x']})
             xr_list = xr_pair.where(gen_num_da == k-1, drop = True)
-            idlist = np.concatenate([np.array(xr_list['ids1']),  xr_list['ids2'], xr_list['ids3']])
+            idlist = np.unique(np.concatenate([np.array(xr_list['ids1']),  xr_list['ids2'], xr_list['ids3']]))
             #Get triangles that are neighbour to this generation
             condi = np.logical_and(( np.array(xr_pair['ids1'].isin(idlist)).astype(int)+
             np.array(xr_pair['ids2'].isin(idlist)).astype(int)+
@@ -405,13 +406,7 @@ def Paralleled_Anisotropic_smoothing(j, n, shm_name, shape):
         gen_num_xr = xr.DataArray(gen_num, dims='x', coords={'x': xr_pair.coords['x']})
         xr_tri = xr_pair.where(~np.isnan(gen_num_xr), drop=True)
         Atot = np.sum(np.array(xr_tri['A']))
-        #print(k, gen_num[~np.isnan(gen_num)],len(np.array(xr_tri['ids1'])))
-        #print("dudx before avg: ", np.array(xr_tri['dudx'])/np.array(xr_tri['A']))
-        #print("dudy before avg: ", np.array(xr_tri['dudy'])/np.array(xr_tri['A']))
-        #print("dvdx before avg: ", np.array(xr_tri['dvdx'])/np.array(xr_tri['A']))
-        #print("dvdx before avg: ", np.array(xr_tri['dvdx'])/np.array(xr_tri['A']))
-        #print("A before avg: ", np.array(xr_tri['A']))
-        #print("div before avg: ", np.array(xr_tri['div']))
+
         if len(np.array(xr_tri['ids1']))>n:
             xr_tri = xr_tri.sum(skipna=True)
             shared_results[0,j] = np.array(xr_tri['dudx'])/Atot + np.array(xr_tri['dvdy'])/Atot
@@ -431,34 +426,34 @@ def Paralleled_Anisotropic_smoothing(j, n, shm_name, shape):
         #print(shared_results[0,j], shared_results[14,j])
 
 
-def Paralleled_Kernel_smoothing(j, shm_name, shape):
+def Paralleled_Kernel_smoothing(j, shm_name, shape, Data_in,n):
 
     shm = shared_memory.SharedMemory(name=shm_name)
     shared_results = np.ndarray(shape,  buffer=shm.buf)
 
-    if np.isnan(shared_results[15,j]):
+    if np.isnan(Data_in[15,j]):
         pass
     else:
-        day_flag = shared_results[12,j].copy()
-        idpair = shared_results[11,j].copy()
-        condi = (shared_results[11,:] == idpair) & (shared_results[12,:] == day_flag)
+        day_flag = Data_in[12,j].copy()
+        idpair = Data_in[11,j].copy()
+        condi = (Data_in[11,:] == idpair) & (Data_in[12,:] == day_flag)
 
         #------Create the pair xarray
-        a = len(shared_results[0,condi])
+        a = len(Data_in[0,condi])
         # Make dataset with all scaled variables
-        div = xr.DataArray(shared_results[0,condi].copy(), dims=['x'], name='div',coords={"x": np.arange(a)})
-        shr = xr.DataArray(shared_results[1,condi].copy(), dims=['x'], name='shr',coords={"x": np.arange(a)})
-        vrt = xr.DataArray(shared_results[2,condi].copy(), dims=['x'], name='vrt',coords={"x": np.arange(a)})
-        A = xr.DataArray(shared_results[14,condi].copy(), dims=['x'], name='A',coords={"x": np.arange(a)})
-        dudx = xr.DataArray(shared_results[15,condi].copy()*shared_results[14,condi].copy(), dims=['x'], name='dudx',coords={"x": np.arange(a)})
-        dudy = xr.DataArray(shared_results[16,condi].copy()*shared_results[14,condi].copy(), dims=['x'], name='dudy',coords={"x": np.arange(a)})
-        dvdx = xr.DataArray(shared_results[17,condi].copy()*shared_results[14,condi].copy(), dims=['x'], name='dvdx',coords={"x": np.arange(a)})
-        dvdy = xr.DataArray(shared_results[18,condi].copy()*shared_results[14,condi].copy(), dims=['x'], name='dvdy',coords={"x": np.arange(a)})
-        ids1 = xr.DataArray(shared_results[8,condi].copy(), dims=['x'], name='ids1',coords={"x": np.arange(a)})
-        ids2 = xr.DataArray(shared_results[9,condi].copy(), dims=['x'], name='ids2',coords={"x": np.arange(a)})
-        ids3 = xr.DataArray(shared_results[10,condi].copy(), dims=['x'], name='ids3',coords={"x": np.arange(a)})
-        s2n = xr.DataArray(shared_results[13,condi].copy(), dims=['x'], name='s2n',coords={"x": np.arange(a)})
-        ref = xr.DataArray(shared_results[19,condi].copy(), dims=['x'], name='ref',coords={"x": np.arange(a)})
+        div = xr.DataArray(Data_in[0,condi].copy(), dims=['x'], name='div',coords={"x": np.arange(a)})
+        shr = xr.DataArray(Data_in[1,condi].copy(), dims=['x'], name='shr',coords={"x": np.arange(a)})
+        vrt = xr.DataArray(Data_in[2,condi].copy(), dims=['x'], name='vrt',coords={"x": np.arange(a)})
+        A = xr.DataArray(Data_in[14,condi].copy(), dims=['x'], name='A',coords={"x": np.arange(a)})
+        dudx = xr.DataArray(Data_in[15,condi].copy()*Data_in[14,condi].copy(), dims=['x'], name='dudx',coords={"x": np.arange(a)})
+        dudy = xr.DataArray(Data_in[16,condi].copy()*Data_in[14,condi].copy(), dims=['x'], name='dudy',coords={"x": np.arange(a)})
+        dvdx = xr.DataArray(Data_in[17,condi].copy()*Data_in[14,condi].copy(), dims=['x'], name='dvdx',coords={"x": np.arange(a)})
+        dvdy = xr.DataArray(Data_in[18,condi].copy()*Data_in[14,condi].copy(), dims=['x'], name='dvdy',coords={"x": np.arange(a)})
+        ids1 = xr.DataArray(Data_in[8,condi].copy(), dims=['x'], name='ids1',coords={"x": np.arange(a)})
+        ids2 = xr.DataArray(Data_in[9,condi].copy(), dims=['x'], name='ids2',coords={"x": np.arange(a)})
+        ids3 = xr.DataArray(Data_in[10,condi].copy(), dims=['x'], name='ids3',coords={"x": np.arange(a)})
+        s2n = xr.DataArray(Data_in[13,condi].copy(), dims=['x'], name='s2n',coords={"x": np.arange(a)})
+        ref = xr.DataArray(Data_in[19,condi].copy(), dims=['x'], name='ref',coords={"x": np.arange(a)})
 
         xr_pair = xr.Dataset({'div': div,
                                   'shr':  shr,
@@ -478,29 +473,73 @@ def Paralleled_Kernel_smoothing(j, shm_name, shape):
         max_index = np.squeeze(np.where(condi))[-1]+1
         i = j- min_index
 
-        List_skip_vertices = shared_results[14,condi]
-        xr_list = xr_pair.where(xr_pair['ref'].notnull(), drop = True)
-        indices = np.concatenate([np.array(xr_list['ids1']),  xr_list['ids2'], xr_list['ids3']])
+        xr_list = xr_pair.where(xr_pair['ref'].notnull(), drop = True) #Select values that are already post-processed
+        indices= np.unique(np.concatenate([np.array(xr_list['ids1']),  xr_list['ids2'], xr_list['ids3']]))
 
-        xr_pair = xr_pair.where(~xr_pair['ids1'].isin(indices), drop = True)
-        xr_pair = xr_pair.where(~xr_pair['ids2'].isin(indices), drop = True)
-        xr_pair = xr_pair.where(~xr_pair['ids3'].isin(indices), drop = True)
+        xr_pair = xr_pair.where(xr_pair['ref'].isnull(), np.nan) #Drop the values if the are already post-processed
 
-        i1,i2,i3 = shared_results[8,j],shared_results[9,j],shared_results[10,j]
-        xr_tri = xr_pair.where(np.logical_or(np.logical_or(xr_pair['ids1'].isin([i1,i2,i3]), xr_pair['ids2'].isin([i1,i2,i3])),xr_pair['ids3'].isin([i1,i2,i3])), drop=True)
-        Atot = np.sum(np.array(xr_tri['A']))
-        if len(np.array(xr_tri['ids1']))>1:
-            xr_tri = xr_tri.sum(skipna=True)
+        #The following was to drop high s2n values, but it is wrong...
+        #indices = np.concatenate([np.array(xr_list['ids1']),  xr_list['ids2'], xr_list['ids3']])
+        #xr_pair = xr_pair.where(~xr_pair['ids1'].isin(indices), drop = True)
+        #xr_pair = xr_pair.where(~xr_pair['ids2'].isin(indices), drop = True)
+        #xr_pair = xr_pair.where(~xr_pair['ids3'].isin(indices), drop = True)
+
+
+        #----------------------------
+        # Make a kernel for the smoothing
+        #----------------------------
+        #get the list of triangles to be averaged
+        gen_num = np.array(xr_pair['ids1']).copy()*np.nan
+        #n = 0:
+        gen_num[i] = 0
+        for k in range(1,n+1):
+            #----Find neighbouring triangles----
+
+            #Get the id of vertexes
+            gen_num_da = xr.DataArray(gen_num.copy(), dims='x', coords={'x': xr_pair.coords['x']})
+            xr_list = xr_pair.where(gen_num_da == k-1, drop = True)
+            idlist = np.unique(np.concatenate((np.array(xr_list['ids1']),np.array(xr_list['ids2']),np.array(xr_list['ids3']))))
+            idlist = idlist[~np.isin(idlist,indices)]
+            if len(idlist) == 0:
+                break
+            if k == 1:
+                idlist = idlist[0] #Keeping only ids1 (or ids2,3 if 1 is nan)
+            #selct all triangles with one of either vertices
+            condi = np.logical_and(np.logical_or(np.array(xr_pair['ids1'].isin(idlist)).astype(int),
+                                                   np.logical_or(np.array(xr_pair['ids2'].isin(idlist)).astype(int),
+                                                                 np.array(xr_pair['ids3'].isin(idlist)).astype(int))),
+                                   np.isnan(gen_num)) #excluding points that are already selected from n<k
+            n_tri = len(np.array(np.array(xr_pair['ids1'])[condi]))
+            #----Update the neighboor flag with new rows----
+            if n_tri == 0:
+                break
+            gen_num[condi] = k
+
+        #----------------------------
+        # Update the deformation data with the mean of selected triangles
+        #----------------------------
+
+        gen_num_xr = xr.DataArray(gen_num, dims='x', coords={'x': xr_pair.coords['x']})
+        xr_tri = xr_pair.where(~np.isnan(gen_num_xr), drop=True)
+        n_tri = len(np.array(xr_tri['A']))
+        xr_tri = xr_tri.sum(skipna=True)
+        Atot = np.array(xr_tri['A'])
+        if n==1:
+            print("Atot is: ", Atot, n_tri)
+        if Atot> 0.0:
             shared_results[0,j] = np.array(xr_tri['dudx'])/Atot + np.array(xr_tri['dvdy'])/Atot
             shared_results[1,j] = ((  np.array(xr_tri['dudx'])/Atot - np.array(xr_tri['dvdy'])/Atot)**2.0 +
                             (np.array(xr_tri['dudy'])/Atot + np.array(xr_tri['dvdx'])/Atot)**2.0  )**0.5
             shared_results[2,j] = np.array(xr_tri['dvdx'])/Atot - np.array(xr_tri['dudy'])/Atot
-            shared_results[3,j] = Atot
+            shared_results[3,j] = np.array(xr_tri['A'])
             shared_results[4,j] = np.array(xr_tri['dudx'])/Atot
             shared_results[5,j] = np.array(xr_tri['dudy'])/Atot
             shared_results[6,j] = np.array(xr_tri['dvdx'])/Atot
             shared_results[7,j] = np.array(xr_tri['dvdy'])/Atot
         else:
+            print(Data_in[:,j])
+            print(gen_num[j])
+            print(xr_tri.values)
             shared_results[:,j]  = np.nan
 
 
