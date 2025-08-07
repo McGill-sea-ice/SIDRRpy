@@ -312,7 +312,7 @@ class PostProcessed_Data:
             xr_in = self.aniso_filtered_dataset
         if xr_smooth is None:
             xr_smooth = self.Smoothed_dataset
-        xr_out = xr_in.where(xr_in['s2n']>1.3,xr_smooth)
+        xr_out = xr_in.where(xr_in.notnull,xr_smooth)
         self.xr_filtered = xr_out
         self.Data.div = np.array(xr_out['div'])
         self.Data.shr = np.array(xr_out['shr'])
@@ -524,8 +524,6 @@ def Paralleled_Kernel_smoothing(j, shm_name, shape, Data_in,n):
         n_tri = len(np.array(xr_tri['A']))
         xr_tri = xr_tri.sum(skipna=True)
         Atot = np.array(xr_tri['A'])
-        if n==1:
-            print("Atot is: ", Atot, n_tri)
         if Atot> 0.0:
             shared_results[0,j] = np.array(xr_tri['dudx'])/Atot + np.array(xr_tri['dvdy'])/Atot
             shared_results[1,j] = ((  np.array(xr_tri['dudx'])/Atot - np.array(xr_tri['dvdy'])/Atot)**2.0 +
