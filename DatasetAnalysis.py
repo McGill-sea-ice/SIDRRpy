@@ -40,7 +40,6 @@ from LoadDataset   import SID_dataset
 from TimeUtil import TimeUtil
 from Statistics_objects import Coverage_map, Data_Distribution
 from haversine import haversine
-from PostProcessed_Data import PostProcessed_Data
 
 if __name__ == '__main__':
 
@@ -248,42 +247,6 @@ if __name__ == '__main__':
             if config['visualize']['plot_errors'] == 'True':
                 visuals.plot_errors(data = Data, datestring = ThisTime_str, idpair = int(config['visualize']['idpair']))
 
-            #Figure showing normal, shear and rotation rates. And Area. (Fig. 2 in Plante et al., 2024)
-            if config['PostProcessing']['S2Nfilter'] == 'True':
-                n = 2
-                #Initializzed the filters
-                Postprocessing = PostProcessed_Data(Data = Data)
-                Postprocessing2 = PostProcessed_Data(Data = Data)
-
-                #1. Filter out data with low s2n ratio in filter A
-                #Data_filtered = Postprocessing.S2Nfilter()
-                #visuals.plot_data_structure(data=Data_filtered, idpair =  int(config['visualize']['idpair']), datestring = ThisTime_str + "s2n_filtered", show_shear =1)
-
-                #2. Add an anisotropic smoothing of deformations in LKFs (Itkin 2025)
-                #Data_filtered2 = Postprocessing.Anisotropic_smoothing(n = n)
-                #visuals.plot_deformations(data = Data_filtered2, datestring = ThisTime_str + "Anisotropic_filtered_n%s" % n)
-                #visuals.plot_data_structure(data=Data_filtered2, idpair =  int(config['visualize']['idpair']), datestring = ThisTime_str + "Anisotropic_filtered_n%s" % n, show_shear =1)
-
-                #3. In second filter, smooth the deformation, keeping only kernels without any large deformation values
-                Data_filtered3 = Postprocessing2.Kernel_smoothing()
-                #Data_filtered3 = Postprocessing2.Kernel_smoothing(xr_ref = Postprocessing.aniso_filtered_dataset)
-                visuals.plot_deformations(data = Data_filtered3, datestring = ThisTime_str + "Kernelfiltered")
-                visuals.plot_data_structure(data=Data_filtered3, idpair =  int(config['visualize']['idpair']), datestring = ThisTime_str + "Kernelfiltered", show_shear =1)
-
-                #4. Combine the LKF deformations and out--of-LKFs deformaitons
-                #Data_filtered4 = Postprocessing2.Combined_filters(xr_in = Postprocessing.aniso_filtered_dataset)
-                #visuals.plot_deformations(data = Data_filtered4, datestring = ThisTime_str + "Combined_filters_n%s" % n)
-                #visuals.plot_data_structure(data=Data_filtered4, idpair =  int(config['visualize']['idpair']), datestring = ThisTime_str + "Combined_filters_n%s" % n, show_shear =1)
-                #visuals.show_tripcolor_field(data=Data_filtered4, Field = Data_filtered4.A,
-                #                              title = "Triangle Areas", label = "Area",
-                #                              datestring=ThisTime_str + "Combined_filters_n%s" % n)
-
-
-            #Data_filtered.Make_CDF_output(label = "S2Nfilter/", TimeString = ThisTimeFile)
-            #Data_filtered2.Make_CDF_output(label = "Itkin_n%s/" % n, TimeString = ThisTimeFile)
-            #Data_filtered3.Make_CDF_output(label = "KernelFiltered_n%s/" % n, TimeString = ThisTimeFile)
-            #Data_filtered4.Make_CDF_output(label = "CombinedFilters_n%s/" % n, TimeString = ThisTimeFile)
-
         #--------------------------------------------------------------------------------
         #Update the data carrier for the next timestep
         #--------------------------------------------------------------------------------
@@ -332,7 +295,6 @@ if __name__ == '__main__':
                                       Data2 = FreqMap_S1,
                                       Data3 = FreqMap_RCM,
                                       datestring = TimeTool.StartDate_str + '_' + TimeTool.EndDate_str)
-
 
     # Display the computation time
     print("--- %s seconds ---" % (time.time() - start_time))
