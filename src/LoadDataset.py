@@ -18,6 +18,9 @@ sys.path.insert(0,parent)
 from netCDF4 import Dataset
 import numpy as np
 import matplotlib.pyplot as plt
+import xarray as xr
+import subprocess
+import shutil
 
 
 # Loads netCDF data
@@ -39,17 +42,26 @@ class SID_dataset:
         interval:
 
         """
+        if config is not None:
+            IO            = config['IO']
+            output_folder = IO['output_folder']
+            exp           = IO['exp']
+            self.figsPath =  output_folder + exp
+            os.makedirs(self.figsPath, exist_ok=True)
 
         print('--- Loading data (netcdf) ---')
+        try:
+            self.cdfout_path = IO['cdf_out']
+        except:
+            self.cdfout_path = None
         path = FileName
-
+        self.FileName = FileName
         # Load netCDF as Dataset from *path*
         ds = Dataset(path, mode='r')
-
-        reftime = ds.getncattr('referenceTime')
-        icetracker = ds.getncattr('SatelliteSource')
-        tolerance = ds.getncattr('Max_Deltat')
-        trackingerror = ds.getncattr('trackingError')
+        self.reftime = ds.getncattr('referenceTime')
+        self.icetracker = ds.getncattr('SatelliteSource')
+        self.tolerance = ds.getncattr('Max_Deltat')
+        self.trackingerror = int(ds.getncattr('trackingError')[:-2])
 
         # Load netCDF as Dataset from *path*
         ds = Dataset(path, mode='r')
@@ -83,6 +95,7 @@ class SID_dataset:
         self.dvdy = (ds.variables['dvdy'][:])[:]
 
         #Extracting uncertainty data
+        self.errA = (ds.variables['errA'][:])[:]
         self.errI = (ds.variables['err_div'][:])[:]
         self.errII = (ds.variables['err_shr'][:])[:]
         self.errvrt = (ds.variables['err_vrt'][:])[:]
@@ -101,6 +114,9 @@ class SID_dataset:
         #Create an object to track the start date
         self.day_flag = self.idpair.copy()
         self.day_flag[:]= 1
+        #Create an object to track the start date
+        self.pts_dayflag = self.pts_idpair.copy()
+        self.pts_dayflag[:]= 1
 
         #Filter out data with too large Area (> 20km^2)
         indices = [i for i in range(len(self.A)) if  self.A[i] < 20000.0**2.0 ]
@@ -156,6 +172,7 @@ class SID_dataset:
         self.start_lon = self.start_lon[np.isin(self.pts_idpair,self.idpair)]
         self.end_lat = self.end_lat[np.isin(self.pts_idpair,self.idpair)]
         self.end_lon = self.end_lon[np.isin(self.pts_idpair,self.idpair)]
+        self.pts_dayflag = self.pts_dayflag[np.isin(self.pts_idpair,self.idpair)]
         self.pts_idpair = self.pts_idpair[np.isin(self.pts_idpair,self.idpair)]
 
 
@@ -200,6 +217,7 @@ class SID_dataset:
             self.end_lon = np.append(self.end_lon,Data2.end_lon)
             idmax = np.nanmax(self.pts_idpair)
             self.pts_idpair = np.append(self.pts_idpair,Data2.pts_idpair+idmax+1)
+            self.pts_dayflag = np.append(self.pts_dayflag,Data2.pts_dayflag)
         except: #Otherwise, fall back to using the format SIDRR dataset format
             self.start_lat1 = np.append(self.start_lat1, Data2.start_lat1)
             self.start_lat2 = np.append(self.start_lat2,Data2.start_lat2)
@@ -334,3 +352,34 @@ class SID_dataset:
                     LonVector[ids3[i]] = start_lon3_temp[i]
 
         return LatVector, LonVector
+
+
+    def Make_CDF_output(self, label = None, TimeString = None):
+
+        cdfs = self.cdfout_path
+        cdf_out_Path =  self.figsPath + cdfs
+        print(cdf_out_Path)
+        os.makedirs(cdf_out_Path, exist_ok=True)
+        if label is not None:
+            cdf_out_Path  = cdf_out_Path + label
+            print(cdf_out_Path)
+            os.makedirs(cdf_out_Path, exist_ok=True)
+
+        cdf_out_Path = cdf_out_Path + TimeString + ".nc"
+        bash_cpSTD = "cp %s %s" % (self.FileName, cdf_out_Path)
+        print(bash_cpSTD)
+        shutil.copyfile(self.FileName, cdf_out_Path)
+        #process = subprocess.Popen(bash_cpSTD.split(), stdout=subprocess.PIPE)
+        #print(cdf_out_Path)
+        ds = Dataset(cdf_out_Path, mode='r+')
+        ds['A'][:][:] = self.A
+        ds['div'][:][:] = self.div
+        ds['shr'][:][:] = self.shr
+        ds['vrt'][:][:] = self.vrt
+        ds['dudx'][:][:] = self.dudx
+        ds['dudy'][:][:] = self.dudy
+        ds['dvdx'][:][:] = self.dvdx
+        ds['dvdy'][:][:] = self.dvdy
+
+        ds.close()
+        
