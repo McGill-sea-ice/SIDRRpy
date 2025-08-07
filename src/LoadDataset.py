@@ -76,6 +76,8 @@ class SID_dataset:
         self.start_lon = (ds.variables['start_lon'][:])[:]
         self.end_lat = (ds.variables['end_lat'][:])[:]
         self.end_lon = (ds.variables['end_lon'][:])[:]
+
+
         self.pts_idpair = (ds.variables['pts_idpair'][:])[:]
 
         #Extracting SAR image and triangle vertex IDs
@@ -160,6 +162,7 @@ class SID_dataset:
         self.dudy = self.dudy[indices]
         self.dvdx = self.dvdx[indices]
         self.dvdy = self.dvdy[indices]
+        self.errA = self.errA[indices]
         self.errI = self.errI[indices]
         self.errII = self.errII[indices]
         self.errvrt = self.errvrt[indices]
@@ -248,6 +251,7 @@ class SID_dataset:
         self.dvdx = np.append(self.dvdx,Data2.dvdx)
         self.dvdy = np.append(self.dvdy,Data2.dvdy)
 
+        self.errA = np.append(self.errA,Data2.errA)
         self.errI = np.append(self.errI,Data2.errI)
         self.errII = np.append(self.errII,Data2.errII)
         self.errvrt = np.append(self.errvrt,Data2.errvrt)
