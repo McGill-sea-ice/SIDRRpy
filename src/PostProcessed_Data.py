@@ -107,8 +107,7 @@ class PostProcessed_Data:
             Data_ref = np.array(xr_ref['div']).copy()
         else:
             Data_ref = self.Data.div.copy()*np.nan
-#                    indices = self.list_indices(xr_pair = xr_pair_ref)
-#                    xr_pair = xr_pair.where(~xr_pair['ids1'].isin(indices), drop = True)
+
         Nblocks = len(np.unique(self.Data.idpair))
         nb = 0
         print(len(self.Data.div))
@@ -147,8 +146,6 @@ class PostProcessed_Data:
             args = [(j, shm.name, shared_arr.shape, Data_in,n) for j in range(0, len(shared_arr[0,:]))]
             with ProcessPoolExecutor(max_workers=10) as executor:
                 futures = [executor.submit(Paralleled_Kernel_smoothing, *arg) for arg in args]
-#                for _ in tqdm(as_completed(futures), total=len(futures)):
-#                    pass  # or collect results
                 for future in as_completed(futures):
                     pass #future.result()  # handle exceptions if needed
 
@@ -171,6 +168,7 @@ class PostProcessed_Data:
         #   Update the DS
         #----------------------------------
         a = len(self.Data.div)
+
         # Make dataset with all scaled variables
         div = xr.DataArray(self.Data.div.copy(), dims=['x'], name='div',coords={"x": np.arange(a)})
         shr = xr.DataArray(self.Data.shr.copy(), dims=['x'], name='shr',coords={"x": np.arange(a)})
@@ -250,7 +248,6 @@ class PostProcessed_Data:
 
             with ProcessPoolExecutor(max_workers=1) as executor:
                 futures = [executor.submit(Paralleled_Anisotropic_smoothing, *arg) for arg in args]
-#                for _ in tqdm(as_completed(futures), total=len(futures)):
                 for future in as_completed(futures):
                     pass
 
@@ -385,20 +382,19 @@ def Paralleled_Anisotropic_smoothing(j, n, shm_name, shape, Data_in):
             gen_num_da = xr.DataArray(gen_num.copy(), dims='x', coords={'x': xr_pair.coords['x']})
             xr_list = xr_pair.where(gen_num_da == k-1, drop = True)
             idlist = np.unique(np.concatenate([np.array(xr_list['ids1']),  xr_list['ids2'], xr_list['ids3']]))
+
             #Get triangles that are neighbour to this generation
             condi = np.logical_and(( np.array(xr_pair['ids1'].isin(idlist)).astype(int)+
             np.array(xr_pair['ids2'].isin(idlist)).astype(int)+
             np.array(xr_pair['ids3'].isin(idlist)).astype(int))==2, np.array(xr_pair['s2n'])>1.3)
             n_tri = len(np.array(np.array(xr_pair['ids1'])[condi]))
+
             #----Update the neighboor flag with new rows----
             gen_num[np.logical_and(condi,np.isnan(gen_num))] = k 
 
             if n_tri == 0:
                 break
 
-
-
-        #print(shared_results[4,j], shared_results[15,j])
         #----------------------------
         # Update the deformation data with the mean of selected triangles
         #----------------------------
@@ -418,12 +414,8 @@ def Paralleled_Anisotropic_smoothing(j, n, shm_name, shape, Data_in):
             shared_results[5,j] = np.array(xr_tri['dudy'])/Atot
             shared_results[6,j] = np.array(xr_tri['dvdx'])/Atot
             shared_results[7,j] = np.array(xr_tri['dvdy'])/Atot
-            #print("A: ",shared_results[14,j],shared_results[3,j])
-            #print("dudx: ",shared_results[15,j],np.array(xr_tri['dudx']),shared_results[4,j])
         else:
-            #print("skipped! ", k)
             shared_results[0:8,j]  = np.nan
-        #print(shared_results[0,j], shared_results[14,j])
 
 
 def Paralleled_Kernel_smoothing(j, shm_name, shape, Data_in,n):
@@ -440,6 +432,7 @@ def Paralleled_Kernel_smoothing(j, shm_name, shape, Data_in,n):
 
         #------Create the pair xarray
         a = len(Data_in[0,condi])
+
         # Make dataset with all scaled variables
         div = xr.DataArray(Data_in[0,condi].copy(), dims=['x'], name='div',coords={"x": np.arange(a)})
         shr = xr.DataArray(Data_in[1,condi].copy(), dims=['x'], name='shr',coords={"x": np.arange(a)})
@@ -478,11 +471,6 @@ def Paralleled_Kernel_smoothing(j, shm_name, shape, Data_in,n):
 
         xr_pair = xr_pair.where(xr_pair['ref'].isnull(), np.nan) #Drop the values if the are already post-processed
 
-        #The following was to drop high s2n values, but it is wrong...
-        #indices = np.concatenate([np.array(xr_list['ids1']),  xr_list['ids2'], xr_list['ids3']])
-        #xr_pair = xr_pair.where(~xr_pair['ids1'].isin(indices), drop = True)
-        #xr_pair = xr_pair.where(~xr_pair['ids2'].isin(indices), drop = True)
-        #xr_pair = xr_pair.where(~xr_pair['ids3'].isin(indices), drop = True)
 
 
         #----------------------------
@@ -504,12 +492,14 @@ def Paralleled_Kernel_smoothing(j, shm_name, shape, Data_in,n):
                 break
             if k == 1:
                 idlist = idlist[0] #Keeping only ids1 (or ids2,3 if 1 is nan)
+
             #selct all triangles with one of either vertices
             condi = np.logical_and(np.logical_or(np.array(xr_pair['ids1'].isin(idlist)).astype(int),
                                                    np.logical_or(np.array(xr_pair['ids2'].isin(idlist)).astype(int),
                                                                  np.array(xr_pair['ids3'].isin(idlist)).astype(int))),
                                    np.isnan(gen_num)) #excluding points that are already selected from n<k
             n_tri = len(np.array(np.array(xr_pair['ids1'])[condi]))
+
             #----Update the neighboor flag with new rows----
             if n_tri == 0:
                 break
