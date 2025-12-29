@@ -58,3 +58,6 @@ plot_deformation        = True
 show_spatial_scale_dist = True
 show_spatial_coverage   = True
 show_coverage_tseries   = True
+
+[PostProcessing]
+S2Nfilter        = False
