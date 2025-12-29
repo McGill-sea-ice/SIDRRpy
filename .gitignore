@@ -1,0 +1,33 @@
+# Ignore all hidden files, except for .gitignore and .gitkeep
+.*
+!/.gitignore
+!.gitkeep
+
+# Ignore pdf files and files created during the creation of PDF files
+*.pdf
+*.aux
+*.bbl
+*.blg
+*.log
+*.toc
+*.fls
+*.fdb*
+*.synctex*
+*.out
+
+# Ignore bytecodes
+*.pyc
+
+# Ignore .txt files
+*.txt
+
+# Ignore code to launch SIDD on ECCC network
+namelist*
+Experiments/*
+Soumet*
+Lance*
+
+# Ignore temporary .save files
+*.save
+src/world*
+src/*.save.*
