@@ -73,6 +73,8 @@ class visualisation:
             self.figsPath =  output_folder + '/' + exp + '/'
             os.makedirs(self.figsPath, exist_ok=True)
 
+        self.Figure_sens_N  = plt.figure(figsize=[10.0,8.0])
+
 
     def plot_data_structure(self, data = None, datestring=None,  idpair = None, show_shear = 0):
         """
@@ -1127,3 +1129,112 @@ class visualisation:
 
 
         return
+
+
+
+
+    def plot_SARscene_intercom(self, data = None, datestring=None,  idpair = None, n = None):
+        """
+        """
+        print('--- Plotting start and end points ---')
+
+        # Set the matplotlib projection and transform
+        proj = ccrs.NorthPolarStereo(central_longitude=0)
+        trans = ccrs.Geodetic()
+
+        plt.figure(self.Figure_sens_N.number)
+
+        #============================================================
+        #
+        # Panel B: Showing the triangles of specified SAR image pairs
+        #
+        #============================================================
+
+        for k in range(0,3):
+
+            #[0.05+(k*0.3),0.05+((2-k)*0.3),0.3, 0.25+((2-k)*0.03)]
+            ax_tris = fig_pairs.add_axes([0.05+(n*0.17),0.05+((2-k)*0.3),0.3, 0.15+((2-k)*0.03)], projection=proj)
+            ax_tris.set_extent((-4400000, 2500000, 3500000, -2500000), ccrs.NorthPolarStereo())
+            print('--- Creating figures zooming on SAR image pair ID = %s ---' % idpair)
+
+            #---------------------------------
+            # Get data from required SAR image pair
+            #---------------------------------
+
+            # Fetch the image pair data
+            j = np.unique(data.day_flag)[0] #only the netcdf date
+            no_day = data.idpair[np.where(data.day_flag==j)]
+            i = int(idpair[0])
+
+            # Get the first and last row of data corresponding to the specific pair of SAR images
+            condi = (data.idpair[:] == i) & (data.day_flag[:] == j)
+            min_index = np.where(condi)[0][0]
+            max_index = np.where(condi)[0][-1]+1
+
+            # Get vertex ids from specific pair, and stack into triangle array, for tripcolor
+            triangles = np.stack((data.ids1[min_index:max_index],
+                              data.ids2[min_index:max_index],
+                              data.ids3[min_index:max_index]), axis=-1)
+
+            #Reconstruct the position vectors used for triangulation
+            LatVector, LonVector = data.reconstruct_position_lists(min_index = min_index, max_index = max_index)
+
+            #Keep only values from specific SAR pair
+            data_colours = data.div[min_index:max_index]
+
+            # tranform the coordinates already to improve the plot efficiency
+            new_coords = proj.transform_points(trans, np.array(LonVector), np.array(LatVector))
+            tria = tri.Triangulation(new_coords[:,0], new_coords[:,1], triangles=triangles)
+
+
+            #---------------------------------
+            # Calculate new boundaries to zoom on figure
+            #---------------------------------
+
+            # Get 4 reference point for map extent, based on the tracked point positions
+            x,y = new_coords[:,0],new_coords[:,1]
+            a1 = np.nanmin(new_coords[:,0])
+            a2 = np.nanmax(new_coords[:,0])
+            a3 = np.nanmin(new_coords[:,1])
+            a4 = np.nanmax(new_coords[:,1])
+            a = len(x)
+
+            points = new_coords.copy()
+            points = points[:,:-1]
+            points = points[~np.isnan(points[:,0]),:]
+            try:
+                ax_tris.set_extent((a1, a2, a3, a4),proj)
+            except:
+                sys.exit("error in extent : %s, %s, %s, %s" % (a1, a2, a3, a4))
+
+            #---------------------------------
+            # Add pcolor and hull contour to figure
+            #---------------------------------
+
+            if len(triangles) != 0:
+
+                #Add tripcolor of the divergence rate calculated from the SAR image pair
+                cb_div = ax_tris.tripcolor(tria, facecolors=data_colours,cmap='coolwarm',
+                                       vmin=-0.04, vmax=0.04, edgecolors='k')
+
+                # Make the hull around the points and add area contour line to figure
+                hull = ConvexHull(points)
+                for simplex in hull.simplices:
+                    plt.plot(points[simplex, 0], points[simplex, 1], 'k-')
+
+            plt.text(0.06,0.95,'b)',ha='center', va='center', transform=ax_tris.transAxes,fontsize=12)
+
+
+        # Create the figure filenames
+        if datestring is None:
+            prefix = "undefined_date"
+        else:
+            prefix = datestring
+        pair_path  = self.figsPath + prefix + '_structure_idpair_%s.png' % idpair
+
+        print('Saving pairs area figure at ',pair_path)
+        fig_pairs.savefig(pair_path, bbox_inches='tight', dpi=600)
+        plt.close(fig_pairs)
+
+
+
