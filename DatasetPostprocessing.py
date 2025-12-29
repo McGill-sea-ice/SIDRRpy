@@ -57,20 +57,6 @@ if __name__ == '__main__':
     TimeTool = TimeUtil(config = config['Date_options'])
     Period = config['Date_options']['Period']
 
-
-    #--------------------------------------------------------------
-    # INITIALISING THE MEMORY TERM
-    #    Loading data from earlier days (6), but valid for 1st analysis date.
-    #    This step is necessary now that the data is stored according to
-    #    the start time. Here, we fetch data from earlier date that are
-    #    valid for the first date of the required analysis period.
-    #
-    #    We are thus building a Memory term containing data to be carried
-    #    over the next step
-    #
-    #    - Data_Mem: Data memory carrier
-    #--------------------------------------------------------------
-
     # Start the clock
     start_time = time.time()
     Delta_days_init = 0
@@ -113,7 +99,7 @@ if __name__ == '__main__':
         #Data_filtered.Make_CDF_output(label = "S2Nfilter/", TimeString = ThisTime_str)
         #del Postprocessing
 
-        for n in range(1,6):
+        for n in range(3,4):
 
             #A: simple smoothing
             Postprocessing = PostProcessed_Data(Data = Data)
@@ -122,6 +108,13 @@ if __name__ == '__main__':
             visuals.plot_data_structure(data=Data_isoSmoothed, idpair =  int(config['visualize']['idpair']), datestring = ThisTime_str + "Isotropic_smoothed_n%s" % n, show_shear =1)
             del Postprocessing
 
+            Postprocessing = PostProcessed_Data(Data = Data)
+            Data_anisoSmoothed = Postprocessing.Anisotropic_smoothing(n = n)
+            visuals.plot_deformations(data = Data_anisoSmoothed, datestring = ThisTime_str + "Anisotropic_smoothed_n%s" % n)
+            visuals.plot_data_structure(data=Data_anisoSmoothed, idpair =  int(config['visualize']['idpair']), datestring = ThisTime_str + "Anisotropic_smoothed_n%s" % n, show_shear =1)
+            del Postprocessing
+
+
             #B: Anisotropic smoothing
             Postprocessing = PostProcessed_Data(Data = Data)
             Data_filtered = Postprocessing.S2Nfilter()
@@ -129,25 +122,83 @@ if __name__ == '__main__':
             visuals.plot_deformations(data = Data_filtered2, datestring = ThisTime_str + "Anisotropic_filtered_n%s" % n)
             visuals.plot_data_structure(data=Data_filtered2, idpair =  int(config['visualize']['idpair']), datestring = ThisTime_str + "Anisotropic_filtered_n%s" % n, show_shear =1)
 
-            #Smoothing outside of LKFsRepeat for
+            #C: Smoothing outside of LKFs
             Postprocessing2 = PostProcessed_Data(Data = Data)
-            Data_filtered3 = Postprocessing2.Kernel_smoothing(xr_ref = Postprocessing.aniso_filtered_dataset)
+            Data_filtered3 = Postprocessing2.Kernel_smoothing(xr_ref = Postprocessing.aniso_filtered_dataset, n = n)
             #visuals.plot_deformations(data = Data_filtered3, datestring = ThisTime_str + "Kernelfiltered_n%s" % n)
             visuals.plot_data_structure(data=Data_filtered3, idpair =  int(config['visualize']['idpair']), datestring = ThisTime_str + "Kernelfiltered_n%s" % n, show_shear =1)
 
-            #4. Combine the LKF deformations and out--of-LKFs deformaitons
+            #D: Combine the LKF deformations and out--of-LKFs deformaitons
             Data_filtered4 = Postprocessing2.Combined_filters(xr_in = Postprocessing.aniso_filtered_dataset)
             #visuals.plot_deformations(data = Data_filtered4, datestring = ThisTime_str + "Combined_filters_n%s" % n)
             visuals.plot_data_structure(data=Data_filtered4, idpair =  int(config['visualize']['idpair']), datestring = ThisTime_str + "Combined_filters_n%s" % n, show_shear =1)
-            #visuals.show_tripcolor_field(data=Data_filtered4, Field = Data_filtered4.A,
-            #                                  title = "Triangle Areas", label = "Area",
-            #                                  datestring=ThisTime_str + "Combined_filters_n%s" % n)
+
+            #--------------------
+            # Save results in post-processed datasets
+            #--------------------
+
+            Data_isoSmoothed.Make_CDF_output(label = "IsoSmoothed_n%s/" % n, TimeString = ThisTime_str)
+            Data_anisoSmoothed.Make_CDF_output(label = "AnisoSmoothed_n%s/" % n, TimeString = ThisTime_str)
+            Data_filtered2.Make_CDF_output(label = "Itkin_n%s/" % n, TimeString = ThisTime_str)
+            Data_filtered3.Make_CDF_output(label = "Lowdefs_n%s/" % n, TimeString = ThisTime_str)
+            Data_filtered4.Make_CDF_output(label = "CombinedFilters_n%s/" % n, TimeString = ThisTime_str)
+
+            del Data_isoSmoothed
+            del Data_anisoSmoothed
+            del Data_filtered2
+            del Data_filtered3
+            del Data_filtered4
+            del Postprocessing
+            del Postprocessing2
+
+            #--------------------
+            # Repeat but with recomputed deformations instead of smoothing
+            #--------------------
+
+            #A: simple smoothing
+            Postprocessing = PostProcessed_Data(Data = Data)
+            Data_isoSmoothed = Postprocessing.Kernel_smoothing(n = n, Compute_defs = 1)
+            visuals.plot_deformations(data = Data_isoSmoothed, datestring = ThisTime_str + "Isotropic_smoothed_n%s_recomputed" % n)
+            visuals.plot_data_structure(data=Data_isoSmoothed, idpair =  int(config['visualize']['idpair']), datestring = ThisTime_str + "Isotropic_smoothed_n%s_recomputed" % n, show_shear =1)
+            del Postprocessing
 
 
-#            Data_filtered2.Make_CDF_output(label = "Itkin_n%s/" % n, TimeString = ThisTime_str)
-#            Data_filtered3.Make_CDF_output(label = "KernelFiltered_n%s/" % n, TimeString = ThisTime_str)
-#            Data_filtered4.Make_CDF_output(label = "CombinedFilters_n%s/" % n, TimeString = ThisTime_str)
+            Postprocessing = PostProcessed_Data(Data = Data)
+            Data_anisoSmoothed = Postprocessing.Anisotropic_smoothing(n = n, Compute_defs = 1)
+            visuals.plot_deformations(data = Data_anisoSmoothed, datestring = ThisTime_str + "Anisotropic_smoothed_n%s_recomputed" % n)
+            visuals.plot_data_structure(data=Data_anisoSmoothed, idpair =  int(config['visualize']['idpair']), datestring = ThisTime_str + "Anisotropic_smoothed_n%s_recomputed" % n, show_shear =1)
+            del Postprocessing
 
+            #B: Anisotropic smoothing
+            Postprocessing = PostProcessed_Data(Data = Data)
+            Data_filtered = Postprocessing.S2Nfilter()
+            Data_filtered2 = Postprocessing.Anisotropic_smoothing(n = n, Compute_defs = 1)
+            visuals.plot_deformations(data = Data_filtered2, datestring = ThisTime_str + "Anisotropic_filtered_n%s_recomputed" % n)
+            visuals.plot_data_structure(data=Data_filtered2, idpair =  int(config['visualize']['idpair']), datestring = ThisTime_str + "Anisotropic_filtered_n%s_recomputed" % n, show_shear =1)
+
+            #C: Smoothing outside of LKFs
+            Postprocessing2 = PostProcessed_Data(Data = Data)
+            Data_filtered3 = Postprocessing2.Kernel_smoothing(xr_ref = Postprocessing.aniso_filtered_dataset, Compute_defs = 1)
+            #visuals.plot_deformations(data = Data_filtered3, datestring = ThisTime_str + "Kernelfiltered_n%s" % n)
+            visuals.plot_data_structure(data=Data_filtered3, idpair =  int(config['visualize']['idpair']), datestring = ThisTime_str + "Kernelfiltered_n%s_recomputed" % n, show_shear =1)
+
+            #D: Combine the LKF deformations and out--of-LKFs deformaitons
+            Data_filtered4 = Postprocessing2.Combined_filters(xr_in = Postprocessing.aniso_filtered_dataset)
+            #visuals.plot_deformations(data = Data_filtered4, datestring = ThisTime_str + "Combined_filters_n%s" % n)
+            visuals.plot_data_structure(data=Data_filtered4, idpair =  int(config['visualize']['idpair']), datestring = ThisTime_str + "Combined_filters_n%s_recomputed" % n, show_shear =1)
+
+            #--------------------
+            # Save results in post-processed datasets
+            #--------------------
+
+            Data_isoSmoothed.Make_CDF_output(label = "IsoSmoothed_n%s_recomputed/" % n, TimeString = ThisTime_str)
+            Data_anisoSmoothed.Make_CDF_output(label = "AnisoSmoothed_n%s_recomputed/" % n, TimeString = ThisTime_str)
+            Data_filtered2.Make_CDF_output(label = "Itkin_n%ss_recomputed/" % n, TimeString = ThisTime_str)
+            Data_filtered3.Make_CDF_output(label = "Lowdefs_n%ss_recomputed/" % n, TimeString = ThisTime_str)
+            Data_filtered4.Make_CDF_output(label = "CombinedFilters_n%ss_recomputed/" % n, TimeString = ThisTime_str)
+
+            del Data_isoSmoothed
+            del Data_anisoSmoothed
             del Data_filtered2
             del Data_filtered3
             del Data_filtered4
