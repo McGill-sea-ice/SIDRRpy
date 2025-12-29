@@ -21,7 +21,8 @@ import matplotlib.pyplot as plt
 import xarray as xr
 import subprocess
 import shutil
-
+import cartopy.crs as ccrs
+import pyproj as pyproj
 
 # Loads netCDF data
 class SID_dataset:
@@ -77,7 +78,6 @@ class SID_dataset:
         self.end_lat = (ds.variables['end_lat'][:])[:]
         self.end_lon = (ds.variables['end_lon'][:])[:]
 
-
         self.pts_idpair = (ds.variables['pts_idpair'][:])[:]
 
         #Extracting SAR image and triangle vertex IDs
@@ -107,7 +107,6 @@ class SID_dataset:
 
         #closing the dataset
         ds.close()
-        print("finished reading cdf")
 
         #Create a Mask object
         self.Mask = self.A.copy()
@@ -120,10 +119,36 @@ class SID_dataset:
         self.pts_dayflag = self.pts_idpair.copy()
         self.pts_dayflag[:]= 1
 
+        self.dt = self.end_time - self.start_time
+        self.dt_pts = self.pts_dayflag.copy()*np.nan
+
+        # Looping over SAR image pairs (each image pair IDs from each daily netcdf)
+        for j in np.unique(self.day_flag):
+          for i in np.unique(self.idpair[np.where(self.day_flag==j)]):
+            # Get data from the specific pair of SAR images
+            condi = (self.idpair[:] == i) & (self.day_flag[:] == j)
+            condi_pts = (self.pts_idpair[:] == i) & (self.pts_dayflag[:] == j)
+            dt_pair = self.dt.copy()[condi]
+            self.dt_pts[condi_pts] = dt_pair[0]
+
+        print("Computing U and V")
+        #Retrieve U and V
+        proj = ccrs.NorthPolarStereo(central_longitude=0)
+        trans = ccrs.PlateCarree()
+        new_coords_start = proj.transform_points(trans, np.array(self.start_lon).copy(), np.array(self.start_lat).copy())
+        new_coords_end = proj.transform_points(trans, np.array(self.end_lon).copy(), np.array(self.end_lat).copy())
+        self.u= (new_coords_end[:,0].copy() - new_coords_start[:,0].copy()) / self.dt_pts
+        self.v= (new_coords_end[:,1].copy() - new_coords_start[:,1].copy()) / self.dt_pts
+
         #Filter out data with too large Area (> 20km^2)
         indices = [i for i in range(len(self.A)) if  self.A[i] < 20000.0**2.0 ]
         self.Mask[indices] = 0
         self.filter_data(indices = indices)
+
+
+
+
+
 
     def filter_data(self, indices = None):
         """
@@ -134,7 +159,7 @@ class SID_dataset:
         self.start_time = self.start_time[indices]
         self.satellite = self.satellite[indices]
         self.end_time = self.end_time[indices]
-        print(len(self.start_lat),len(self.dudx))
+        print("Before filtering : ", len(self.start_lat),len(self.dudx))
         try:  #This is only when using the former SIDRR dataset format
             self.start_lat1 = self.start_lat1[indices]
             self.start_lat2 = self.start_lat2[indices]
@@ -170,14 +195,19 @@ class SID_dataset:
         self.s2n   = self.s2n[indices]
         self.Mask = self.Mask[indices]
         self.day_flag = self.day_flag[indices]
+        self.dt = self.dt[indices]
 
         self.start_lat = self.start_lat[np.isin(self.pts_idpair,self.idpair)]
         self.start_lon = self.start_lon[np.isin(self.pts_idpair,self.idpair)]
         self.end_lat = self.end_lat[np.isin(self.pts_idpair,self.idpair)]
         self.end_lon = self.end_lon[np.isin(self.pts_idpair,self.idpair)]
+        self.u = self.u[np.isin(self.pts_idpair,self.idpair)]
+        self.v = self.v[np.isin(self.pts_idpair,self.idpair)]
+        self.dt_pts = self.dt_pts[np.isin(self.pts_idpair,self.idpair)]
         self.pts_dayflag = self.pts_dayflag[np.isin(self.pts_idpair,self.idpair)]
         self.pts_idpair = self.pts_idpair[np.isin(self.pts_idpair,self.idpair)]
 
+        print("After filtering : ", len(self.start_lat),len(self.dudx))
 
     def mask_data(self, indices = None):
         """
@@ -213,27 +243,19 @@ class SID_dataset:
         self.end_time = np.append(self.end_time,Data2.end_time)
         self.satellite = np.append(self.satellite, Data2.satellite)
 
-        try:  #This is when using the revised SIDRR dataset set, Plante et al., 2024
-            self.start_lat = np.append(self.start_lat,Data2.start_lat)
-            self.start_lon = np.append(self.start_lon,Data2.start_lon)
-            self.end_lat = np.append(self.end_lat,Data2.end_lat)
-            self.end_lon = np.append(self.end_lon,Data2.end_lon)
-            idmax = np.nanmax(self.pts_idpair)
-            self.pts_idpair = np.append(self.pts_idpair,Data2.pts_idpair+idmax+1)
-            self.pts_dayflag = np.append(self.pts_dayflag,Data2.pts_dayflag)
-        except: #Otherwise, fall back to using the format SIDRR dataset format
-            self.start_lat1 = np.append(self.start_lat1, Data2.start_lat1)
-            self.start_lat2 = np.append(self.start_lat2,Data2.start_lat2)
-            self.start_lat3 = np.append(self.start_lat3,Data2.start_lat3)
-            self.start_lon1 = np.append(self.start_lon1,Data2.start_lon1)
-            self.start_lon2 = np.append(self.start_lon2,Data2.start_lon2)
-            self.start_lon3 = np.append(self.start_lon3,Data2.start_lon3)
-            self.end_lat1 = np.append(self.end_lat1,Data2.end_lat1)
-            self.end_lat2 = np.append(self.end_lat2,Data2.end_lat2)
-            self.end_lat3 = np.append(self.end_lat3,Data2.end_lat3)
-            self.end_lon1 = np.append(self.end_lon1,Data2.end_lon1)
-            self.end_lon2 = np.append(self.end_lon2,Data2.end_lon2)
-            self.end_lon3 = np.append(self.end_lon3,Data2.end_lon3)
+        self.start_lat = np.append(self.start_lat,Data2.start_lat)
+        self.start_lon = np.append(self.start_lon,Data2.start_lon)
+        self.end_lat = np.append(self.end_lat,Data2.end_lat)
+        self.end_lon = np.append(self.end_lon,Data2.end_lon)
+        idmax = np.nanmax(self.pts_idpair)
+        self.pts_idpair = np.append(self.pts_idpair,Data2.pts_idpair+idmax+1)
+        self.pts_dayflag = np.append(self.pts_dayflag,Data2.pts_dayflag)
+        self.dt_pts = np.append(self.dt_pts,Data2.dt_pts)
+
+        self.u = np.append(self.u,Data2.u)
+        self.v = np.append(self.v,Data2.v)
+        self.dt = np.append(self.dt,Data2.dt)
+
 
         self.ids1 = np.append(self.ids1,Data2.ids1)
         self.ids2 = np.append(self.ids2,Data2.ids2)
@@ -262,7 +284,8 @@ class SID_dataset:
 
 
 
-    def reconstruct_position_lists(self, min_index= None,max_index=None, EndPoint = None):
+    def reconstruct_position_lists(self, min_index= None, max_index=None, EndPoint = None):
+
         """
         This function reconstruct the list of Lat, Lon position prior to the triangulation
         and outputs corresponding, larger lists of start lats/lons (with 0s in some indices) that reflect the
@@ -278,7 +301,7 @@ class SID_dataset:
         new_lon -- Array of longitude values at the positions they were originally in, in the data file
 
         """
-        try:  #This is when using the revised SIDRR dataset set, Plante et al., 2024
+        try: #This is when using the revised SIDRR dataset set, Plante et al., 2024
             idpair = np.unique(self.idpair[min_index:max_index])
 
             # Skipping blank data files
@@ -291,7 +314,6 @@ class SID_dataset:
             else:
                     LatVector = self.start_lat[self.pts_idpair==idpair].copy()
                     LonVector = self.start_lon[self.pts_idpair==idpair].copy()
-
 
         except: #Otherwise, fall back on method from former SIDRR dataset format
             (start_lat1_temp,
@@ -358,32 +380,87 @@ class SID_dataset:
         return LatVector, LonVector
 
 
-    def Make_CDF_output(self, label = None, TimeString = None):
+    def Make_CDF_output(self, label = None, TimeString = None, Output_folder = None, idlist = None):
 
-        cdfs = self.cdfout_path
-        cdf_out_Path =  self.figsPath + cdfs
-        print(cdf_out_Path)
-        os.makedirs(cdf_out_Path, exist_ok=True)
-        if label is not None:
-            cdf_out_Path  = cdf_out_Path + label
+
+        if Output_folder is not None:
+            cdf_out_Path = Output_folder
+        else:
+            cdfs = self.cdfout_path
+            cdf_out_Path =  self.figsPath + cdfs
             print(cdf_out_Path)
             os.makedirs(cdf_out_Path, exist_ok=True)
-
-        cdf_out_Path = cdf_out_Path + TimeString + ".nc"
-        bash_cpSTD = "cp %s %s" % (self.FileName, cdf_out_Path)
-        print(bash_cpSTD)
-        shutil.copyfile(self.FileName, cdf_out_Path)
-        #process = subprocess.Popen(bash_cpSTD.split(), stdout=subprocess.PIPE)
-        #print(cdf_out_Path)
-        ds = Dataset(cdf_out_Path, mode='r+')
-        ds['A'][:][:] = self.A
-        ds['div'][:][:] = self.div
-        ds['shr'][:][:] = self.shr
-        ds['vrt'][:][:] = self.vrt
-        ds['dudx'][:][:] = self.dudx
-        ds['dudy'][:][:] = self.dudy
-        ds['dvdx'][:][:] = self.dvdx
-        ds['dvdy'][:][:] = self.dvdy
-
-        ds.close()
+            if label is not None:
+                cdf_out_Path  = cdf_out_Path + label
+                print(cdf_out_Path)
+                os.makedirs(cdf_out_Path, exist_ok=True)        
         
+        # Make the sim data with nan in the filtered out pairs.
+        if idlist is not None:
+
+            ds = Dataset(self.FileName, mode='r+')
+            idpairs = ds["idpair"][:][:].copy()
+            pts_idpairs = ds["pts_idpair"][:][:].copy()
+            condi = np.isin(idpairs, idlist)
+            condi_pts = np.isin(pts_idpairs, idlist)
+            #print(len(condi),len(condi_pts))
+
+            print("Before filtering : ", len(ds.variables['div'][:]),len(ds.variables['start_lat'][:]))
+            A = (ds.variables['A'][:])[:].copy()*np.nan
+            A[condi] = self.A.copy()
+
+            #print(len(A[condi]))
+            div = (ds.variables['div'][:])[:].copy()*np.nan
+            div[condi] = self.div.copy()
+            #print("DIV example: ", (ds['div'][:][condi])[0:10],self.div[0:10])
+
+            shr = (ds.variables['shr'][:])[:].copy()*np.nan
+            shr[condi] = self.shr.copy()
+            vrt = (ds.variables['vrt'][:])[:].copy()*np.nan
+            vrt[condi] = self.vrt.copy()
+            dudx = (ds.variables['dudx'][:])[:].copy()*np.nan
+            dudx[condi] = self.dudx.copy()
+            dudy = (ds.variables['dudy'][:])[:].copy()*np.nan
+            dudy[condi] = self.dudy.copy()
+            dvdx = (ds.variables['dvdx'][:])[:].copy()*np.nan
+            dvdx[condi] = self.dvdx.copy()
+            dvdy = (ds.variables['dvdy'][:])[:].copy()*np.nan
+            dvdy[condi] = self.dvdy.copy()
+        
+            end_lat = (ds.variables['end_lat'][:])[:].copy()*np.nan
+            end_lat[condi_pts] = self.end_lat.copy()
+            end_lon = (ds.variables['end_lon'][:])[:].copy()*np.nan
+            #print(len(end_lon[condi_pts]))
+            #print("LON example : ", ((ds.variables['end_lon'][:])[condi_pts])[0:10],self.end_lon[0:10])
+            end_lon[condi_pts] = self.end_lon.copy()
+            ds.close()
+
+        # Make a copy of the SIDRR file to store the simulated data
+        cdf_out_Path = cdf_out_Path + TimeString + ".nc"
+        shutil.copyfile(self.FileName, cdf_out_Path)
+
+        #Update the data in the copied cdf to store the sim results
+        ds_new = Dataset(cdf_out_Path, mode='r+')
+        ds_new['A'][:] = A
+        ds_new['div'][:] = div
+        ds_new['shr'][:] = shr
+        ds_new['vrt'][:] = vrt
+        ds_new['dudx'][:] = dudx
+        ds_new['dudy'][:] = dudy
+        ds_new['dvdx'][:] = dvdx
+        ds_new['dvdy'][:] = dvdy
+
+        ds_new['end_lat'][:] = end_lat
+        ds_new['end_lon'][:] = end_lon
+#        print("DIV example: ", (ds['div'][:][condi])[0:10],(ds_new['div'][:][condi])[0:10], (ds['div'][:][condi])[0:10]-(ds_new['div'][:][condi])[0:10])
+        ds_new.close()
+        
+
+#        ds = Dataset(self.FileName, mode='r+')
+#        ds_new = Dataset(cdf_out_Path, mode='r+')
+#        print("DIV example: ", (ds['div'][:][condi])[0:10],(ds_new['div'][:][condi])[0:10], (ds['div'][:][condi])[0:10]-(ds_new['div'][:][condi])[0:10])
+#        print("Lat example: ", (ds['end_lat'][:][condi_pts])[0:10],(ds_new['end_lat'][:][condi_pts])[0:10], (ds['end_lat'][:][condi_pts])[0:10]-(ds_new['start_lat'][:][condi_pts])[0:10])
+#        ds_new.close()
+#        ds.close()
+#        asdfasd
+
