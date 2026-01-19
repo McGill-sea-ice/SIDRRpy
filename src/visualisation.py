@@ -793,7 +793,9 @@ class visualisation:
                               ' ', '2020',
                               ' ', '2021',
                               ' ', '2022',
-                              ' ', '2023',]
+                              ' ', '2023',
+                              ' ', '2024',
+                              ' ', '2025',]
 
         date_list = [datetime(2017,1,1,hour=0),
                      datetime(2017,7,1,hour=0),
@@ -807,7 +809,11 @@ class visualisation:
                      datetime(2021,7,1,hour=0),
                      datetime(2022,1,1,hour=0),
                      datetime(2022,7,1,hour=0),
-                     datetime(2023,1,1,hour=0)]
+                     datetime(2023,1,1,hour=0),
+                     datetime(2023,7,1,hour=0),
+                     datetime(2024,1,1,hour=0),
+                     datetime(2024,7,1,hour=0),
+                     datetime(2025,1,1,hour=0)]
 
         #2022-01-01 is day number 44562 since 1900-01-01
         reference_date = datetime(2022,1,1,hour=0)
@@ -1236,5 +1242,7 @@ class visualisation:
         fig_pairs.savefig(pair_path, bbox_inches='tight', dpi=600)
         plt.close(fig_pairs)
 
+    def close_all(self):
+        plt.close('all')
 
 

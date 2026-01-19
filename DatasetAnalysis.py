@@ -166,11 +166,11 @@ if __name__ == '__main__':
     Asum = 0.0
     # Iterating over each day
     for ThisTime in TimeTool.daterange():
-
+        print(ThisTime)
+        sys.stdout.flush()
         #------------------------------------------------------------------
         # Fetch data
         #------------------------------------------------------------------
-
         # Update time and data paths
         TimeTool.ThisTime = ThisTime
         TimeTool.t = TimeTool.time_ref_number(date_pt = ThisTime)
@@ -258,6 +258,7 @@ if __name__ == '__main__':
         Data_Mem.end_time = Data_Mem.end_time - 60*60*24
         Data_Mem.day_flag = Data_Mem.day_flag + 1
         Data_Mem.pts_dayflag = Data_Mem.pts_dayflag + 1
+        visuals.close_all()
         del visuals
         del Data
 
@@ -297,4 +298,5 @@ if __name__ == '__main__':
                                       datestring = TimeTool.StartDate_str + '_' + TimeTool.EndDate_str)
 
     # Display the computation time
+    visuals.close_all()
     print("--- %s seconds ---" % (time.time() - start_time))
